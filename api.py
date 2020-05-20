@@ -99,7 +99,8 @@ IP = get_ip()
 
 print IP
 
-app.run(host=IP)
+
+app.run(host=IP, port=8888)
 
 
 
