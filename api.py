@@ -78,6 +78,29 @@ def api_call():
         
         return "<h1>Success!</h1>"
 
-app.run()
+# run on ip address of machine
+# print ip address to terminal
+
+import socket
+
+def get_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    ip = "0.0.0.0"
+    try:
+        s.connect(("10.255.255.255", 1)) # try to connect to bogon ip to get ip of machine
+        ip = s.getsockname()[0] # returns ip address of server on local network
+    except:
+        pass
+    finally:
+        s.close()
+    return ip
+
+IP = get_ip()
+
+print IP
+
+app.run(host=IP)
+
+
 
 
