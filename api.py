@@ -6,31 +6,41 @@ app = flask.Flask(__name__) # creates a flask app
 app.config["DEBUG"] = True  # if there is an error in the code setting this to true allows the specfic error to be displayed in browser instead of a generic bad gateway error
 
 # read data from file "users.json"
-users = {}
+users = []
 
 try:
     with open("users.json") as f:
         users = json.load(f) # load users.json as a dict
+        print users
 
 except FileNotFoundError:
     pass
 
 # Dealing with shutdown
-import signal, time, sys
+#import signal, time, sys
+
+#global just_pressed
+#just_pressed = True # for signal handler to not call twice
 
 def out_to_file():
     # write changes to users.json out to file
+    print users
     with open("users.json", "w") as f:
         json.dump(users, f)
 
-def signal_handler(signal, frame):
+#def signal_handler(signal, frame):
     # handle ctrl+c event
-    print "CTRL + C received"
-    out_to_file()
-    time.sleep(1)
-    sys.exit(0)
+#    global just_pressed
 
-signal.signal(signal.SIGINT, signal_handler) # calls signal_handler on ctrl+c event
+#    if just_pressed:
+        # "CTRL + C received"
+#        out_to_file()
+#        just_pressed = False
+#        time.sleep(1)
+
+#    sys.exit(0)
+
+#signal.signal(signal.SIGINT, signal_handler) # calls signal_handler on ctrl+c event
 
 # routing a call to path "/" to this method
 @app.route("/", methods=["GET"])
@@ -46,11 +56,28 @@ def api_call():
 
     elif request.method == "POST":
         # handles when a raspberry pi posts a log file
-        data = request.form
-        print data["ID"]
-        users["ID"] = data["ID"]
+
+        #print data["ID"]
+        #users["ID"] = data["ID"]
+        try:
+            # data must be in the form of a dictionary
+            data = request.form
+            print data
+            user_ID_set = False
+            for dict in users:
+                if data["ID"] == dict["ID"]:
+                    print "User already set"
+                    user_ID_set = True
+            if not user_ID_set:
+                new_dict = {}
+                new_dict["ID"] = data["ID"]
+                users.append(new_dict)
+                out_to_file()
+        except:
+            print "Invalid Use Of API POST Handler"
+        
+        return "<h1>Success!</h1>"
 
 app.run()
-
 
 
