@@ -1,14 +1,15 @@
-# remove json local file handling and replace it with Firebase database calls
-# initially, just remove local file handlers and replace
+#!flask/bin/python
 
-import flask
-from flask import request, jsonify, Response, make_response, render_template
+from flask import Flask, request, jsonify, Response, make_response, render_template
 import json
 from datetime import date
 import socket
 
 global devices
 global keys
+
+app = Flask(__name__)  # creates a flask app
+
 
 # ==================================================================================
 # FIREBASE IMPLEMENTATION NEEDED HERE
@@ -18,6 +19,7 @@ global keys
 def get_resource(path):
     print("Retrieving resource from: {:}".format(path))
     return {}
+
 
 # Used to write changes to JSON files out to file
 def out_to_database(json_file, data):
@@ -34,11 +36,12 @@ def access_device_file():
     # returns the devices dictionary as a JSON file
     return jsonify(devices)
 
+
 # used by POST request handler to add a new device to devices
 def update_IDs():
     global devices
 
-    # dont want to change devices directly in case another device accesses the file
+    # don't want to change devices directly in case another device accesses the file
     tmp_devices = devices
 
     # data must be in the form of a dictionary
@@ -48,13 +51,13 @@ def update_IDs():
     device_ID = int(data["device_ID"])
     name = data["friendly_name"]
     gateway = data["controller_gateway"]
-    
-    position = len(devices) - 1 # position of new dict in devices list
-    found_first = False         # condition so that the first device found with the same id will be overwritten (precaution)
+
+    position = len(devices) - 1  # position of new dict in devices list
+    found_first = False  # condition so that the first device found with the same id will be overwritten (precaution)
 
     # check if device is already on the network
     for i in range(len(tmp_devices)):
-        d = tmp_devices[i] # dictionary containing JSON info of a device
+        d = tmp_devices[i]  # dictionary containing JSON info of a device
 
         if (d["device_ID"] == device_ID) and not found_first:
             print("device_ID {:} already in use. Overwriting previous device_ID".format(device_ID))
@@ -62,26 +65,28 @@ def update_IDs():
             found_first = True
 
         elif d["friendly_name"].lower() == name.lower():
-            print("WARNING: friendly_name in use with another device. Consider changing friendly_name and resending POST request")
+            print(
+                "WARNING: friendly_name in use with another device. Consider changing friendly_name and resending POST request")
 
     new_dict = {
-        "device_ID":device_ID,
-        "friendly_name":name,
-        "controller_gateway":gateway
+        "device_ID": device_ID,
+        "friendly_name": name,
+        "controller_gateway": gateway
     }
 
-    if found_first: # if a duplicate was found
+    if found_first:  # if a duplicate was found
         tmp_devices[position] = new_dict
 
     else:
         tmp_devices.append(new_dict)
 
-    #except:
-        #return "Invalid Use Of API POST Request Handler.\nData should be in the form: {'"'device_ID'"':0,'"'friendly_name'"':'"'Example'"','"'controller_gateway'"':'"'192.168.1.9'"'}"
-    
-    out_to_database("devices.json", tmp_devices) # write changes to file
+    # except:
+    # return "Invalid Use Of API POST Request Handler.\nData should be in the form: {'"'device_ID'"':0,'"'friendly_name'"':'"'Example'"','"'controller_gateway'"':'"'192.168.1.9'"'}"
+
+    out_to_database("devices.json", tmp_devices)  # write changes to file
 
     return Response({}, 201, mimetype="text/html")
+
 
 def update_log(device_ID):
     # format of log file database:
@@ -102,8 +107,8 @@ def update_log(device_ID):
     # a dictionary mapping device_IDs to a list of log files
     # need to load this in and output the update
     # the better way to do this is to find where to put it and append it to the file without reading in the whole file
-    
-    data = request.form # get the log file
+
+    data = request.form  # get the log file
 
     # check the data is formatted correctly
     current_volume = int(data["current_volume"])
@@ -113,9 +118,9 @@ def update_log(device_ID):
 
     # build dictionary
     today = date.today()
-    new_log = {"device_ID":int(device_ID), "date_received":str(today), "total_dispenses":total_dispenses, "total_detected":total_detected, "total_ignored":total_ignored, "current_volume":current_volume}
+    new_log = {"device_ID": int(device_ID), "date_received": str(today), "total_dispenses": total_dispenses,
+               "total_detected": total_detected, "total_ignored": total_ignored, "current_volume": current_volume}
 
-    
     # (log_database[str(device_ID)]).append(new_log)
 
     # now find device_ID in log database and write changes to file
@@ -136,6 +141,7 @@ def update_log(device_ID):
 def home():
     return "<h1>Hello there</h1>"
 
+
 # routing a call to path "/devices" to this method
 @app.route("/devices/<api_key>", methods=["GET"])
 def general_call_handler():
@@ -144,7 +150,8 @@ def general_call_handler():
         return access_device_file()
 
     else:
-        return Response("<h3>ERROR: This URL is reserved for GET and HTML requests only</h3>", 501, mimetype="text/html")
+        return Response("<h3>ERROR: This URL is reserved for GET and HTML requests only</h3>", 501,
+                        mimetype="text/html")
 
 
 @app.route("/devices/<device_ID>/<api_key>", methods=["GET", "DELETE", "POST"])
@@ -153,7 +160,7 @@ def specific_call_handler(device_ID, api_key):
 
     # first check if the api_key is in the database or not
     # never will be called for now, need to check with Firebase if this is a correct api key
-    if False: 
+    if False:
         return Response("<h3>Invalid API Key</h3>", 401, mimetype="text/html")
 
     # api_key is correct
@@ -170,9 +177,11 @@ def specific_call_handler(device_ID, api_key):
                 else:
                     # return a file not found custom error
                     return Response("<h3>Error 404: Device ID is not in use</h3>", 404, mimetype="text/html")
-            
+
             except TypeError:
-                return Response("<body><h3>Type Error ocuured</h3><p>This may be due to the device ID not being of numerical type.</p></body>", 500, mimetype="text/html")
+                return Response(
+                    "<body><h3>Type Error ocuured</h3><p>This may be due to the device ID not being of numerical type.</p></body>",
+                    500, mimetype="text/html")
 
         elif request.method == "POST":
             # dealing with log files coming from devices
@@ -198,16 +207,16 @@ def specific_call_handler(device_ID, api_key):
 
                 i += 1
 
-            if i < len(devices) - 1:    # if an matching id was found in devices[:-1]
-                devices = devices[:i] + devices[i+1:]
+            if i < len(devices) - 1:  # if an matching id was found in devices[:-1]
+                devices = devices[:i] + devices[i + 1:]
 
-            elif i == len(devices) - 1: # if the matching id was the last device
+            elif i == len(devices) - 1:  # if the matching id was the last device
                 devices = devices[:i]
 
-            else: # no matching id found
+            else:  # no matching id found
                 return Response("<h3>Error 404: Device ID is not in use</h3>", 404, mimetype="text/html")
 
-            out_to_database("devices.json", devices) # write changes to file
+            out_to_database("devices.json", devices)  # write changes to file
 
             return Response(204)
 
@@ -220,20 +229,18 @@ def get_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     ip = "0.0.0.0"
     try:
-        s.connect(("10.255.255.255", 1)) # try to connect to bogon ip to get ip of machine
-        ip = s.getsockname()[0] # returns ip address of server on local network
+        s.connect(("10.255.255.255", 1))  # try to connect to bogon ip to get ip of machine
+        ip = s.getsockname()[0]  # returns ip address of server on local network
     except:
         pass
     finally:
         s.close()
     return ip
 
+
 def main():
     global devices
 
-    app = flask.Flask(__name__) # creates a flask app
-    app.config["DEBUG"] = True  # if there is an error in the code setting this to true allows the specfic error to be displayed in browser instead of a generic bad gateway error
-    
     # set up global devices dictionary
     # This is a dictionary of device_IDs for all devices registered on the system
     devices = get_resource("/devices")
@@ -241,7 +248,7 @@ def main():
     # get ip address of current machine
     IP = get_ip()
     print(IP)
-    app.run(host=IP, port=8888)
+    app.run(host=IP, port=8888, debug=True)
 
 
 if __name__ == '__main__':
