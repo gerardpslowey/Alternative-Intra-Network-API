@@ -78,25 +78,28 @@ def produce_graphs(devices, log_database):
             dates.append("/".join(date))
         
         # produce graphs
-        plt.figure()
+        fig, ax = plt.subplots()
 
         # Plot each line of data
-        plt.plot(dates, total_detected, label="Total Detected")
-        plt.plot(dates, total_dispensed, label="Total dispensed")
-        plt.plot(dates, total_ignored, label="Total Ignored")
+        ax.plot(dates, total_detected, label="Total Detected")
+        ax.plot(dates, total_dispensed, label="Total dispensed")
+        ax.plot(dates, total_ignored, label="Total Ignored")
         
         # Label axes
-        plt.xlabel("Date")
-        plt.ylabel("No. dispensed")
+        ax.set_xlabel("Date")
+        ax.set_ylabel("No. dispensed")
 
         # Make legend
-        plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left', ncol=3, mode="expand", borderaxespad=0.)
+        ax.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left', ncol=3, mode="expand", borderaxespad=0.)
+
+        # fix overlapping labels
+        fig.autofmt_xdate(rotation=30)
 
         # Save graphs
         plt.savefig("individual_graph_{:s}".format(device))
         
         # Save average data so it can be used in the total graph
-        total_data[device] = [sum(total_detected)//len(total_detected), sum(total_dispensed)//len(total_dispensed), sum(total_ignored)//len(total_ignored)]
+        total_data[str(device)] = [sum(total_detected)//len(total_detected), sum(total_dispensed)//len(total_dispensed), sum(total_ignored)//len(total_ignored)]
 
     # produce bar chart to show total data
     fig, ax = plt.subplots()
@@ -127,9 +130,9 @@ def produce_graphs(devices, log_database):
         sorted_devices.append(str(key))
     
     # Plot grouped bar chart
-    ax.bar(x - width, total_detected_means, width, label='No. Detected Mean')
-    ax.bar(x, total_dispensed_means, width, label='No. Dispened Mean')
-    ax.bar(x + width, total_ignored_means, width, label='No. Ignored Mean')
+    ax.bar(x - width, total_detected_means, width, label='Detected Mean')
+    ax.bar(x, total_dispensed_means, width, label='Dispened Mean')
+    ax.bar(x + width, total_ignored_means, width, label='Ignored Mean')
 
     # legend
     ax.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left', ncol=3, mode="expand", borderaxespad=0.)
@@ -138,9 +141,12 @@ def produce_graphs(devices, log_database):
     ax.set_xlabel("Device ID")
     ax.set_ylabel("Quantity")
 
-    # set x axis ticks
+    # set x axis
     ax.set_xticks(x)
     ax.set_xticklabels(sorted_devices)
+
+    # fix overlapping labels
+    fig.autofmt_xdate(rotation=30)
 
     # Save graph
     plt.savefig("total_graph")
@@ -184,7 +190,7 @@ def main():
         print("Unable to load file log_database.json")
 
     # device ID list
-    devices = [str(i) for i in range(10)]
+    devices = ["device_" + str(i) for i in range(10)]
 
     # produce and save graphs based on log file data
     produce_graphs(devices, log_database)
