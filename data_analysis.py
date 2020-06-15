@@ -192,7 +192,8 @@ def produce_report(devices, log_database, graph_names):
     # add graphs to html doc
     for graph in graph_names:
         images += """
-    <img src="{:s}.png" alt="My test image">""".format(graph)
+    <h3>{:s}</h3>
+    <img src="{:s}.png" alt="My test image">""".format(graph, graph)
 
     # total report
     total = report_start + images + report_end
