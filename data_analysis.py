@@ -27,6 +27,9 @@ def produce_graphs(devices, log_database):
 
     os.chdir(graph_dir) # change current working directory to this directory
 
+    # names of the graphs which get created
+    names = []
+
     for device in devices:
         # extract log files
         logs = log_database[device]
@@ -95,8 +98,14 @@ def produce_graphs(devices, log_database):
         # fix overlapping labels
         fig.autofmt_xdate(rotation=30)
 
+        # name of file graph will be saved as
+        name = "individual_graph_{:s}".format(device)
+
         # Save graphs
-        plt.savefig("individual_graph_{:s}".format(device))
+        plt.savefig(name)
+
+        # add graph name
+        names.append(name)
         
         # Save average data so it can be used in the total graph
         total_data[str(device)] = [sum(total_detected)//len(total_detected), sum(total_dispensed)//len(total_dispensed), sum(total_ignored)//len(total_ignored)]
@@ -148,17 +157,57 @@ def produce_graphs(devices, log_database):
     # fix overlapping labels
     fig.autofmt_xdate(rotation=30)
 
+    # name of graph file
+    name = "total_graph"
+
     # Save graph
-    plt.savefig("total_graph")
+    plt.savefig(name)
+
+    # add graph name
+    names.append(name)
+
+    return names
 
 
 def sorter(t):
     return t[0]        
 
-def produce_report(devices, log_database):
+def produce_report(devices, log_database, graph_names):
     # Assume log_database is a loaded dictionary which maps device IDs to a list of formatted dictionaries
     # Assume devices is a list of all alphanumerical device IDs on record
-    pass
+    # Produce a html report containing the graphs made above
+    report_start = """<!DOCTYPE html>
+<html>
+<head>
+</head>
+<body>"""
+
+    report_end = """
+</body>
+</html>"""
+
+    # graphs html
+    images = ""
+
+    # add graphs to html doc
+    for graph in graph_names:
+        images += """
+    <img src="{:s}.png" alt="My test image">""".format(graph)
+
+    # total report
+    total = report_start + images + report_end
+
+    # output file
+    out_to_file = "index.html"
+
+    # open file
+    f = open(out_to_file, "w")
+
+    # write to file
+    f.write(total)
+
+    # close file stream
+    f.close()
 
 def main():
     # Access files, produce graphs and a report on the matter
@@ -193,10 +242,10 @@ def main():
     devices = ["device_" + str(i) for i in range(10)]
 
     # produce and save graphs based on log file data
-    produce_graphs(devices, log_database)
+    graph_names = produce_graphs(devices, log_database)
 
     # produce and save a summary of collected statistics
-    produce_report(devices, log_database)
+    produce_report(devices, log_database, graph_names)
 
 if __name__ == '__main__':
     main()
