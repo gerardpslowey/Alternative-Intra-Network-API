@@ -18,11 +18,12 @@ def produce_graphs(devices, log_database):
 
     # change working directory so that graphs are saved in the a single folder
     cur_dir = os.getcwd() # current working directory
-    graph_dir = os.path.join(cur_dir, "templates") # path to graph folder
+
+    # must be in static folder so flask can find graphs
+    graph_dir = os.path.join(cur_dir, "static") # path to graph folder
 
     # if path doesn't exist, make it
     if not os.path.exists(graph_dir):
-        # directory will be (current working directory + letter)
         os.mkdir(graph_dir)
 
     os.chdir(graph_dir) # change current working directory to this directory
@@ -164,6 +165,9 @@ def produce_graphs(devices, log_database):
     # add graph name
     names.append(name)
 
+    # chnage the current working directory back
+    os.chdir(cur_dir)
+
     return names
 
 
@@ -187,8 +191,15 @@ def produce_report(devices, log_database, graph_names):
     # graphs html
     images = ""
 
-    # get path to graphs
-    directory = os.getcwd()
+    # remember working directory
+    cur_dir = os.getcwd()
+
+    # must be in templates folder so flask can find html file
+    page_dir = os.path.join(cur_dir, "templates") # path to template website
+
+    # if path doesn't exist, make it
+    if not os.path.exists(page_dir):
+        os.mkdir(page_dir)
 
     # add graphs to html doc
     for graph in graph_names:
@@ -198,18 +209,21 @@ def produce_report(devices, log_database, graph_names):
         name = " ".join(name)
 
         # get path to graph locally
-        path = os.path.join(directory, graph)
+        path = os.path.join(cur_dir, "static", graph)
+        print(path)
 
         # create html for displaying the image
         images += """
+
     <h3>{:s}</h3>
-    <img src="{:s}.png" alt="{:} graph">""".format(name, path, graph)
+    <img src="{:s}.png" alt="{:} graph">
+    """.format(name, path, graph)
 
     # total report
     total = report_start + images + report_end
 
     # output file
-    out_to_file = "index.html"
+    out_to_file = os.path.join(page_dir, "index.html")
 
     # open file
     f = open(out_to_file, "w")
