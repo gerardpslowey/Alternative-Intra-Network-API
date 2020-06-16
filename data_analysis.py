@@ -181,6 +181,7 @@ def produce_report(devices, log_database, graph_names):
     report_start = """<!DOCTYPE html>
 <html>
 <head>
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico">
 </head>
 <body>"""
 
