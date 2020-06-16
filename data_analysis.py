@@ -18,7 +18,7 @@ def produce_graphs(devices, log_database):
 
     # change working directory so that graphs are saved in the a single folder
     cur_dir = os.getcwd() # current working directory
-    graph_dir = os.path.join(cur_dir, "graphs") # path to graph folder
+    graph_dir = os.path.join(cur_dir, "templates") # path to graph folder
 
     # if path doesn't exist, make it
     if not os.path.exists(graph_dir):
@@ -57,8 +57,6 @@ def produce_graphs(devices, log_database):
                 device_data[date][0] += log["total_detected"]
                 device_data[date][1] += log["total_dispensed"]
                 device_data[date][2] += log["total_ignored"]
-
-        print(device_data.items())
         
         # sort dates list
         results = sorted(device_data.items(), key=sorter)
@@ -189,11 +187,23 @@ def produce_report(devices, log_database, graph_names):
     # graphs html
     images = ""
 
+    # get path to graphs
+    directory = os.getcwd()
+
     # add graphs to html doc
     for graph in graph_names:
+        # format name
+        name = graph.split("_")
+        name = [s.capitalize() for s in name]
+        name = " ".join(name)
+
+        # get path to graph locally
+        path = os.path.join(directory, graph)
+
+        # create html for displaying the image
         images += """
     <h3>{:s}</h3>
-    <img src="{:s}.png" alt="My test image">""".format(graph, graph)
+    <img src="{:s}.png" alt="{:} graph">""".format(name, path, graph)
 
     # total report
     total = report_start + images + report_end
@@ -210,7 +220,7 @@ def produce_report(devices, log_database, graph_names):
     # close file stream
     f.close()
 
-def main():
+def run():
     # Access files, produce graphs and a report on the matter
     # Data to report on:
     #    - Usgae Statistics from the dispensers
@@ -248,5 +258,7 @@ def main():
     # produce and save a summary of collected statistics
     produce_report(devices, log_database, graph_names)
 
+    return "index.html"
+
 if __name__ == '__main__':
-    main()
+    run()
