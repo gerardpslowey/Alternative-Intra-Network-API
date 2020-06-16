@@ -1,139 +1,33 @@
 #!flask/bin/python
 
-from flask import Flask, request, jsonify, Response, make_response, render_template
-import json
-from datetime import date
+from flask import Flask, request, jsonify, Response
+from firebase_admin import credentials, firestore, initialize_app
+from datetime import date, datetime
+from Dispenser import Dispenser
 import socket
+import time
 
-global devices
-global keys
+# Get todays date
+todays_date = str(date.today().strftime("%d-%m-%Y"))
 
-app = Flask(__name__)  # creates a flask app
+# Creates a flask app
+app = Flask(__name__)
 
-
-# ==================================================================================
-# FIREBASE IMPLEMENTATION NEEDED HERE
-# ==================================================================================
-
-# get resource from firebase
-def get_resource(path):
-    print("Retrieving resource from: {:}".format(path))
-    return {}
+# Initialize Firestore DB
+cred = credentials.Certificate('ServiceAccountKey.json')
+default_app = initialize_app(cred)
+db = firestore.client()
+devices_ref = db.collection('devices')
 
 
-# Used to write changes to JSON files out to file
-def out_to_database(json_file, data):
-    # write changes out to firebase
-    print("Handling changes to {:}".format(json_file))
+###########################################################
+####### Routing Handling ##################################
+###########################################################
 
-# ==================================================================================
-# ==================================================================================
-# ==================================================================================
-
-# Used by /devices GET request
-def access_device_file():
-    global devices
-    # returns the devices dictionary as a JSON file
-    return jsonify(devices)
-
-
-# used by POST request handler to add a new device to devices
-def update_IDs():
-    global devices
-
-    # don't want to change devices directly in case another device accesses the file
-    tmp_devices = devices
-
-    # data must be in the form of a dictionary
-    data = request.form
-
-    # extract data
-    device_ID = int(data["device_ID"])
-    name = data["friendly_name"]
-    gateway = data["controller_gateway"]
-
-    position = len(devices) - 1  # position of new dict in devices list
-    found_first = False  # condition so that the first device found with the same id will be overwritten (precaution)
-
-    # check if device is already on the network
-    for i in range(len(tmp_devices)):
-        d = tmp_devices[i]  # dictionary containing JSON info of a device
-
-        if (d["device_ID"] == device_ID) and not found_first:
-            print("device_ID {:} already in use. Overwriting previous device_ID".format(device_ID))
-            position = i
-            found_first = True
-
-        elif d["friendly_name"].lower() == name.lower():
-            print(
-                "WARNING: friendly_name in use with another device. Consider changing friendly_name and resending POST request")
-
-    new_dict = {
-        "device_ID": device_ID,
-        "friendly_name": name,
-        "controller_gateway": gateway
-    }
-
-    if found_first:  # if a duplicate was found
-        tmp_devices[position] = new_dict
-
-    else:
-        tmp_devices.append(new_dict)
-
-    # except:
-    # return "Invalid Use Of API POST Request Handler.\nData should be in the form: {'"'device_ID'"':0,'"'friendly_name'"':'"'Example'"','"'controller_gateway'"':'"'192.168.1.9'"'}"
-
-    out_to_database("devices.json", tmp_devices)  # write changes to file
-
-    return Response({}, 201, mimetype="text/html")
-
-
-def update_log(device_ID):
-    # format of log file database:
-    """
-    {
-    "0": [
-        {
-            "device_ID":0
-            "current_volume": 0, 
-            "date_received": "27/05/2020", 
-            "total_detected": 0, 
-            "total_dispenses": 0, 
-            "total_ignored": 0
-        }
-    ]
-    }
-    """
-    # a dictionary mapping device_IDs to a list of log files
-    # need to load this in and output the update
-    # the better way to do this is to find where to put it and append it to the file without reading in the whole file
-
-    data = request.form  # get the log file
-
-    # check the data is formatted correctly
-    current_volume = int(data["current_volume"])
-    total_detected = int(data["total_detected"])
-    total_dispenses = int(data["total_dispenses"])
-    total_ignored = int(data["total_ignored"])
-
-    # build dictionary
-    today = date.today()
-    new_log = {"device_ID": int(device_ID), "date_received": str(today), "total_dispenses": total_dispenses,
-               "total_detected": total_detected, "total_ignored": total_ignored, "current_volume": current_volume}
-
-    # (log_database[str(device_ID)]).append(new_log)
-
-    # now find device_ID in log database and write changes to file
-    out_to_database("log_database.json", new_log)
-
-
-# Note: POST should be used to create a resource
-# PUT should be used to update a resource
-# GET, DELETE, PUT, PATCH can all be called repeatedly without changing the outcome
-# while POST will create duplicates
-# Might have to use PATCH or POST instead of PUT for updating log file list
-# A new resource is technically being created so POST might be necessary
-# However PATCH could be used if the log files where addressable
+# Error Handling
+@app.errorhandler(404)
+def page_not_found(e):
+    return "<h1>404</h1><p>The resource could not be found.</p>", 404
 
 
 # routing a call to path "/" to this method (root endpoint)
@@ -143,84 +37,188 @@ def home():
 
 
 # routing a call to path "/devices" to this method
-@app.route("/devices/<api_key>", methods=["GET"])
+@app.route("/api/devices", methods=["GET", "POST", "PUT", "DELETE"])
 def general_call_handler():
     # GET Handler
     if request.method == "GET":
-        return access_device_file()
+        return access_specific_device_list()
 
+    elif request.method == "POST":
+        return add_new_device()
+
+    elif request.method == "PUT":
+        return update_usage_log_file()
+
+    elif request.method == "DELETE":
+        device_json = request.json
+        device_id = device_json['deviceID']
+        return remove_device_collection(devices_ref.document(device_id), 10)
     else:
-        return Response("<h3>ERROR: This URL is reserved for GET and HTML requests only</h3>", 501,
+        return Response("<h3>ERROR: This URL does not accept the HTTP request sent</h3>", 501,
                         mimetype="text/html")
 
 
-@app.route("/devices/<device_ID>/<api_key>", methods=["GET", "DELETE", "POST"])
-def specific_call_handler(device_ID, api_key):
-    global devices
-
-    # first check if the api_key is in the database or not
-    # never will be called for now, need to check with Firebase if this is a correct api key
-    if False:
-        return Response("<h3>Invalid API Key</h3>", 401, mimetype="text/html")
-
-    # api_key is correct
+# routing a call to path "/devices" to this method
+@app.route("/api/devices/all", methods=["GET"])
+def handle():
+    # GET Handler
+    if request.method == "GET":
+        return access_all_devices_list()
     else:
-        if request.method == "GET":
-            try:
-                device_ID = int(device_ID)
-                # check if device_ID exists
-                if device_ID in devices:
-                    # if it is there, return it's information
-                    # this would require pulling log files from a database
-                    pass
+        return Response("<h3>ERROR: This URL does not accept the HTTP request sent</h3>", 501,
+                        mimetype="text/html")
 
-                else:
-                    # return a file not found custom error
-                    return Response("<h3>Error 404: Device ID is not in use</h3>", 404, mimetype="text/html")
 
-            except TypeError:
-                return Response(
-                    "<body><h3>Type Error ocuured</h3><p>This may be due to the device ID not being of numerical type.</p></body>",
-                    500, mimetype="text/html")
+###########################################################
+####### Database Functions ################################
+###########################################################
 
-        elif request.method == "POST":
-            # dealing with log files coming from devices
-            # put in a list of lists of dictionaries
-            update_log(device_ID)
+def access_all_devices_list():
+    try:
+        all_devices = [doc.to_dict() for doc in devices_ref.stream()]
+        return jsonify(all_devices), 200
+    except Exception as e:
+        return f"An Error Occured: {e}"
 
-        elif request.method == "DELETE":
-            # Attempt to delete device info with given device_ID from just the device file 
-            # Look at how the devices file is configured above
-            # device_ID is is nested within a dictionary, mapped to by the key "device_ID", nested within a list of similiar dictionaries
-            # Therefore each ID must be checked and once one corresponding to the inputted ID is found, delete it and exit
-            # Otherwise return 404
-            i = 0
-            while i < len(devices):
-                device_info = devices[i]
 
-                if device_info["device_ID"] == int(device_ID):
-                    # delete the contents of the dictionary first
-                    del device_info["device_ID"]
-                    del device_info["friendly_name"]
-                    del device_info["controller_gateway"]
-                    break
+def access_specific_device_list():
+    try:
+        query_parameters = request.args
 
-                i += 1
+        # Check if ID was passed to URL query
+        device_id = query_parameters.get('id')
 
-            if i < len(devices) - 1:  # if an matching id was found in devices[:-1]
-                devices = devices[:i] + devices[i + 1:]
+        if device_id:
+            device = devices_ref.document(device_id).get()
+            return jsonify(device.to_dict()), 200
+        else:
+            return "Error: No device id provided. Please specify an id."
+    except Exception as e:
+        return Response(f"An Error Occured: {e}")
 
-            elif i == len(devices) - 1:  # if the matching id was the last device
-                devices = devices[:i]
 
-            else:  # no matching id found
-                return Response("<h3>Error 404: Device ID is not in use</h3>", 404, mimetype="text/html")
+def add_new_device():
+    try:
+        device_info = request.json
 
-            out_to_database("devices.json", devices)  # write changes to file
+        # Extract the device details from the endpoint request
+        deviceID = device_info['deviceID']
+        deviceName = device_info['deviceName']
+        gatewayController = device_info['gatewayController']
+        volumeAvailable = device_info['volumeAvailable']
 
-            return Response(204)
+        # Check if the device already exists
+        device_ref = devices_ref.document(deviceID)
+        device = device_ref.get()
 
-    return "<h1>Very cool</h1>"
+        device_ref_logs = devices_ref.document(deviceID).collection(u'logs')
+        todays_log = device_ref_logs.document(todays_date)
+
+        # Return an error message if it already is in the list
+        if device.exists:
+            return "ERROR: Device with deviceID already exists!\n"
+
+        # If it doesn't, add it as a new device
+        else:
+            # Create instance of Dispenser class
+            device = Dispenser(deviceID, deviceName, gatewayController, volumeAvailable)
+            devices_ref.document(deviceID).set(device.to_dict())
+
+            return Response("Device Successfully Added"), 200
+
+    except Exception as e:
+        return f"An Error Occurred: {e}"
+
+
+def update_usage_log_file():
+    current_time = str(datetime.now().strftime('%H:%M:%S'))
+
+    # Format for a dispense record
+    data = {
+        u'time': current_time,
+        u'volume': 1.2
+        # dispensing volume hardcoded for the minute
+        # consider implementing a getDispensedVolume() function
+    }
+
+    # Get the deviceID from the JSON body sent
+    device_id = request.json['deviceID']
+
+    # Get the location of todays log
+    device_ref_logs = devices_ref.document(device_id).collection(u'logs')
+    todays_log = device_ref_logs.document(todays_date)
+
+    get_log = todays_log.get()
+
+    try:
+        if get_log.exists:
+            # Atomically add a new dispense to the 'dispenses' array field.
+            todays_log.update({u'dispenses': firestore.ArrayUnion([data])})
+            # Delays are needed to seperate firestore operation
+            time.sleep(0.1)
+
+            # Add server timestamp to logs
+            todays_log.set({
+                u'Last Updated': firestore.SERVER_TIMESTAMP
+            }, merge=True)
+            time.sleep(0.1)
+
+            # Increase total_dispensed value
+            todays_log.update({"total_dispensed": firestore.Increment(1)})
+            # Need to implement distributed counter here!!!!!!!!!!!!!!!
+
+            return "Log file successfully updated"
+
+        else:
+            # Create the log and update
+            todays_log.set({
+                u'dispenses': [
+
+                ],
+                u'currentVolume': 0,
+                u'total_detected': 0,
+                u'total_dispensed': 0,
+                u'total_ignores': 0
+            })
+
+            update_usage_log_file()
+
+            return "Log file successfully updated"
+
+    except Exception as e:
+        return f"An Error Occurred: {e}"
+
+
+def remove_device_collection(doc_ref, batch_size):
+    try:
+
+        col_ref = doc_ref.collection('logs')
+        # Limit deletes at a time, prevent memory errors
+        docs = col_ref.limit(batch_size).stream()
+        deleted = 0
+
+        device = doc_ref.get()
+
+        # Check the device exists to be deleted
+        if device.exists:
+            # Start by deleting logs
+            for doc in docs:
+                print(f'Deleting doc {doc.id} => {doc.to_dict()}')
+                doc.reference.delete()
+                deleted = deleted + 1
+
+            if deleted >= batch_size:
+                return remove_device_collection(doc_ref, batch_size)
+
+            # Then delete the base document
+            doc_ref.delete()
+            return "Device successfully deleted"
+
+        else:
+            return Response("Error: No such device!\n")
+
+    except Exception as e:
+        return f"An Error Occured: {e}"
 
 
 # run on ip address of machine
@@ -239,15 +237,9 @@ def get_ip():
 
 
 def main():
-    global devices
-
-    # set up global devices dictionary
-    # This is a dictionary of device_IDs for all devices registered on the system
-    devices = get_resource("/devices")
-
     # get ip address of current machine
     IP = get_ip()
-    print(IP)
+
     app.run(host=IP, port=8888, debug=True)
 
 
