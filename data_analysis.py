@@ -209,14 +209,14 @@ def produce_report(devices, log_database, graph_names):
         name = " ".join(name)
 
         # get path to graph locally
-        path = os.path.join(cur_dir, "static", graph)
+        path = os.path.join("static", graph)
         print(path)
 
         # create html for displaying the image
         images += """
 
     <h3>{:s}</h3>
-    <img src="{:s}.png" alt="{:} graph">
+    <img src="\{:s}.png" alt="{:} graph">
     """.format(name, path, graph)
 
     # total report
@@ -233,6 +233,7 @@ def produce_report(devices, log_database, graph_names):
 
     # close file stream
     f.close()
+
 
 def run():
     # Access files, produce graphs and a report on the matter
