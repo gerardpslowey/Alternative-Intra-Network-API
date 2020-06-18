@@ -6,7 +6,7 @@ from datetime import date, datetime
 
 import socket
 import time
-import data_analysis 
+import data_analysis
 
 # custom libraries
 from Dispenser import Dispenser
@@ -22,8 +22,9 @@ cred = credentials.Certificate('ServiceAccountKey.json')
 default_app = initialize_app(cred)
 db = firestore.client()
 
-# Reference to the devices collecton within the database
+# Reference to the devices collection within the database
 devices_ref = db.collection('devices')
+
 
 ###########################################################
 ####### Routing Handling ##################################
@@ -73,17 +74,20 @@ def handle():
         return Response("<h3>ERROR: This URL does not accept the HTTP request sent</h3>", 501,
                         mimetype="text/html")
 
+
 # Browser Icon
 @app.route("/favicon.ico")
 def favicon():
-    return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico', mimetype='image/vnd.microsoft.icon')
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico',
+                               mimetype='image/vnd.microsoft.icon')
+
 
 # Log file report
 @app.route("/report", methods=["GET"])
 def report_generator():
     # run graph generator
     # run requires devices (list of devices on the network) and log files
-    
+
     # get device list
     all_devices_info = [doc.to_dict() for doc in devices_ref.stream()]
     # device_dict = jsonify(all_devices_info)
@@ -93,8 +97,8 @@ def report_generator():
 
     # extract device ids only
     devices = []
-    for d in all_devices_info:              # for dictionary in all_devices
-        devices.append(d[u"deviceID"]) # extract ID
+    for d in all_devices_info:  # for dictionary in all_devices
+        devices.append(d[u"deviceID"])  # extract ID
 
     for device_id in devices:
         # reference the location of the log files
@@ -107,12 +111,13 @@ def report_generator():
 
             log_dict[device_id] = [doc.to_dict() for doc in stream]
 
-            #log_array = device_logs.document(device_id) # DocumentSnapshot
+            # log_array = device_logs.document(device_id) # DocumentSnapshot
 
     website = data_analysis.run(devices, log_dict)
 
     # render website
     return render_template(website), 200
+
 
 ###########################################################
 ####### Database Functions ################################
@@ -134,12 +139,12 @@ def access_specific_device_list():
         device_id = query_parameters.get('id')
 
         if device_id:
-            # devices_ref is a collections refernce object
-            device = devices_ref.document(device_id).get() # document snapshot
+            # devices_ref is a collections reference object
+            device = devices_ref.document(device_id).get()  # document snapshot
 
             # col = devices_ref.document(device_id).collection('logs')
-            # colection within devices collection called logs, denoted by device_ids
-            
+            # collection within devices collection called logs, denoted by device_ids
+
             return jsonify(device.to_dict()), 200
 
         else:
@@ -161,9 +166,6 @@ def add_new_device():
         # Check if the device already exists
         device_ref = devices_ref.document(deviceID)
         device = device_ref.get()
-
-        device_ref_logs = devices_ref.document(deviceID).collection(u'logs')
-        todays_log = device_ref_logs.document(todays_date)
 
         # Return an error message if it already is in the list
         if device.exists:
@@ -193,19 +195,23 @@ def update_usage_log_file():
     }
 
     # Get the deviceID from the JSON body sent
-    device_id = request.json['deviceID']
+    deviceID = request.json['deviceID']
 
     # Get the location of todays log
-    device_ref_logs = devices_ref.document(device_id).collection(u'logs')
+    device_ref_logs = devices_ref.document(deviceID).collection(u'logs')
     todays_log = device_ref_logs.document(todays_date)
+
+    # Check if the device already exists
+    device_ref = devices_ref.document(deviceID)
+    device = device_ref.get()
 
     get_log = todays_log.get()
 
     try:
-        if get_log.exists:
+        if device.exists and get_log.exists:
             # Atomically add a new dispense to the 'dispenses' array field.
             todays_log.update({u'dispenses': firestore.ArrayUnion([data])})
-            # Delays are needed to seperate firestore operation
+            # Delays are needed to separate firestore operations
             time.sleep(0.1)
 
             # Add server timestamp to logs
@@ -216,11 +222,10 @@ def update_usage_log_file():
 
             # Increase total_dispensed value
             todays_log.update({"total_dispensed": firestore.Increment(1)})
-            # Need to implement distributed counter here!!!!!!!!!!!!!!!
 
             return "Log file successfully updated"
 
-        else:
+        elif device.exists and not get_log.exists:
             # Create the log and update
             todays_log.set({
                 u'dispenses': [
@@ -236,13 +241,15 @@ def update_usage_log_file():
 
             return "Log file successfully updated"
 
+        elif not device.exists:
+            return "No such device exists"
+
     except Exception as e:
         return f"An Error Occurred: {e}"
 
 
 def remove_device_collection(doc_ref, batch_size):
     try:
-
         col_ref = doc_ref.collection('logs')
         # Limit deletes at a time, prevent memory errors
         docs = col_ref.limit(batch_size).stream()
@@ -269,7 +276,7 @@ def remove_device_collection(doc_ref, batch_size):
             return Response("Error: No such device!\n")
 
     except Exception as e:
-        return f"An Error Occured: {e}"
+        return f"An Error Occurred: {e}"
 
 
 # run on ip address of machine
