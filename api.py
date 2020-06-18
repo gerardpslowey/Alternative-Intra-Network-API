@@ -1,11 +1,15 @@
 #!flask/bin/python
 
-from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify, Response, make_response, render_template, send_from_directory
 from firebase_admin import credentials, firestore, initialize_app
 from datetime import date, datetime
-from Dispenser import Dispenser
+
 import socket
 import time
+import data_analysis 
+
+# custom libraries
+from Dispenser import Dispenser
 
 # Get todays date
 todays_date = str(date.today().strftime("%d-%m-%Y"))
@@ -17,8 +21,9 @@ app = Flask(__name__)
 cred = credentials.Certificate('ServiceAccountKey.json')
 default_app = initialize_app(cred)
 db = firestore.client()
-devices_ref = db.collection('devices')
 
+# Reference to the devices collecton within the database
+devices_ref = db.collection('devices')
 
 ###########################################################
 ####### Routing Handling ##################################
@@ -68,6 +73,46 @@ def handle():
         return Response("<h3>ERROR: This URL does not accept the HTTP request sent</h3>", 501,
                         mimetype="text/html")
 
+# Browser Icon
+@app.route("/favicon.ico")
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico', mimetype='image/vnd.microsoft.icon')
+
+# Log file report
+@app.route("/report", methods=["GET"])
+def report_generator():
+    # run graph generator
+    # run requires devices (list of devices on the network) and log files
+    
+    # get device list
+    all_devices_info = [doc.to_dict() for doc in devices_ref.stream()]
+    # device_dict = jsonify(all_devices_info)
+
+    # extract log files
+    log_dict = {}
+
+    # extract device ids only
+    devices = []
+    for d in all_devices_info:              # for dictionary in all_devices
+        devices.append(d[u"deviceID"]) # extract ID
+
+    for device_id in devices:
+        # reference the location of the log files
+        device_logs = devices_ref.document(device_id).collection(u'logs')
+
+        # if device_id hasn't been consulted (should always be true)
+        if device_id not in log_dict:
+            # assuming this is the log data
+            stream = device_logs.stream()
+
+            log_dict[device_id] = [doc.to_dict() for doc in stream]
+
+            #log_array = device_logs.document(device_id) # DocumentSnapshot
+
+    website = data_analysis.run(devices, log_dict)
+
+    # render website
+    return render_template(website), 200
 
 ###########################################################
 ####### Database Functions ################################
@@ -89,8 +134,14 @@ def access_specific_device_list():
         device_id = query_parameters.get('id')
 
         if device_id:
-            device = devices_ref.document(device_id).get()
+            # devices_ref is a collections refernce object
+            device = devices_ref.document(device_id).get() # document snapshot
+
+            # col = devices_ref.document(device_id).collection('logs')
+            # colection within devices collection called logs, denoted by device_ids
+            
             return jsonify(device.to_dict()), 200
+
         else:
             return "Error: No device id provided. Please specify an id."
     except Exception as e:
@@ -138,7 +189,7 @@ def update_usage_log_file():
         u'time': current_time,
         u'volume': 1.2
         # dispensing volume hardcoded for the minute
-        # consider implementing a getDispensedVolume() function
+        # consider implementing a getDispensedVolume() function (this will be in te raspberry pi code)
     }
 
     # Get the deviceID from the JSON body sent
