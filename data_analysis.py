@@ -12,7 +12,18 @@ global log_database
 def produce_graphs(devices, log_database):
     # Assume log_database is a loaded dictionary which maps device IDs to a list of formatted dictionaries
     # Assume devices is a list of all alphanumerical device IDs on record
-    # for every log file associated with a device, extract no. dispensed, no. ignored dispensed and no. detected for a given 
+    # for every log file associated with a device, extract no. dispensed, no. ignores dispensed and no. detected for a given
+    # Structure:
+    """
+    {
+        'dispenses': [{'time': '14:51:18', 'volume': 1.2}, {'time': '14:51:28', 'volume': 1.2}, {'time': '14:52:00', 'volume': 1.2}, {'time': '14:52:08', 'volume': 1.2}],
+        'total_dispensed': 4,
+        'currentVolume': 0,
+        'total_detected': 0,
+        'total_ignores': 0,
+        'Last Updated': DatetimeWithNanoseconds(2020, 6, 15, 13, 52, 8, 664000, tzinfo=<UTC>) # Note: only concerned about the first three integers in the Date i.e. year, month, day. this is an object so values can easily be extracted
+    }
+    """
 
     total_data = {}
 
@@ -38,46 +49,53 @@ def produce_graphs(devices, log_database):
         # reset variables
         prev_date = -math.inf
 
-        # map dates to a three item list containing total detected, total dispensed and total ignored respectively
+        # map dates to a three item list containing total detected, total dispensed and total ignores respectively
         device_data = {}
 
         for log in logs:
             # extract date, which is in the form year month day e.g. 202011 is 1/1/2020
-            date = int(log["time_sent"])
+            date_obj = log[u"Last Updated"]
+            date = str(date_obj.year) + str(date_obj.month) + str(date_obj.day)
             
             # if day has changed
             if date not in device_data:
                 # record new info for that day
-                device_data[date] = [log["total_detected"], log["total_dispensed"], log["total_ignored"]]
+                device_data[date] = [log[u"total_detected"], log[u"total_dispensed"], log[u"total_ignores"]]
 
                 # update
                 prev_date = date
 
             else:
                 # if this day has already been recorded, append it on to existing info
-                device_data[date][0] += log["total_detected"]
-                device_data[date][1] += log["total_dispensed"]
-                device_data[date][2] += log["total_ignored"]
+                device_data[date][0] += log[u"total_detected"]
+                device_data[date][1] += log[u"total_dispensed"]
+                device_data[date][2] += log[u"total_ignores"]
         
         # sort dates list
         results = sorted(device_data.items(), key=sorter)
 
+        
         # extract data
         dates = []
         total_detected = []
         total_dispensed = []
-        total_ignored = []
+        total_ignores = []
 
         for key, value in results:
-            # order of results list : total detected, total dispensed and total ignored respectively
+            # order of results list : total detected, total dispensed and total ignores respectively
             total_detected.append(value[0])
             total_dispensed.append(value[1])
-            total_ignored.append(value[2])
+            total_ignores.append(value[2])
 
             # format date to string
             key = str(key)
             date = [key[6:], key[4:6], key[:4]]
             dates.append("/".join(date))
+
+        #print(results)
+        #print(total_detected)
+        #print(total_dispensed)
+        #print(total_ignores)
         
         # produce graphs
         fig, ax = plt.subplots()
@@ -85,7 +103,7 @@ def produce_graphs(devices, log_database):
         # Plot each line of data
         ax.plot(dates, total_detected, label="Total Detected")
         ax.plot(dates, total_dispensed, label="Total dispensed")
-        ax.plot(dates, total_ignored, label="Total Ignored")
+        ax.plot(dates, total_ignores, label="Total ignores")
         
         # Label axes
         ax.set_xlabel("Date")
@@ -107,7 +125,7 @@ def produce_graphs(devices, log_database):
         names.append(name)
         
         # Save average data so it can be used in the total graph
-        total_data[str(device)] = [sum(total_detected)//len(total_detected), sum(total_dispensed)//len(total_dispensed), sum(total_ignored)//len(total_ignored)]
+        total_data[str(device)] = [sum(total_detected)//len(total_detected), sum(total_dispensed)//len(total_dispensed), sum(total_ignores)//len(total_ignores)]
 
     # produce bar chart to show total data
     fig, ax = plt.subplots()
@@ -121,7 +139,7 @@ def produce_graphs(devices, log_database):
     # Look familiar?
     total_detected_means = []
     total_dispensed_means = []
-    total_ignored_means = []
+    total_ignores_means = []
     sorted_devices = []
 
     # Get data
@@ -132,7 +150,7 @@ def produce_graphs(devices, log_database):
         # In order defined above
         total_detected_means.append(value[0])
         total_dispensed_means.append(value[1])
-        total_ignored_means.append(value[2])
+        total_ignores_means.append(value[2])
 
         # get device id associated with stats
         sorted_devices.append(str(key))
@@ -140,7 +158,7 @@ def produce_graphs(devices, log_database):
     # Plot grouped bar chart
     ax.bar(x - width, total_detected_means, width, label='Detected Mean')
     ax.bar(x, total_dispensed_means, width, label='Dispened Mean')
-    ax.bar(x + width, total_ignored_means, width, label='Ignored Mean')
+    ax.bar(x + width, total_ignores_means, width, label='ignores Mean')
 
     # legend
     ax.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left', ncol=3, mode="expand", borderaxespad=0.)
@@ -224,7 +242,7 @@ def produce_report(devices, log_database, graph_names):
     total = report_start + images + report_end
 
     # output file
-    out_to_file = os.path.join(page_dir, "index.html")
+    out_to_file = os.path.join(page_dir, "report.html")
 
     # open file
     f = open(out_to_file, "w")
@@ -236,45 +254,48 @@ def produce_report(devices, log_database, graph_names):
     f.close()
 
 
-def run():
-    # Access files, produce graphs and a report on the matter
-    # Data to report on:
-    #    - Usgae Statistics from the dispensers
-    #    - Info from dispensers in the form:
-    """
-    {
-        "device_ID":0
-        "current_volume": 0, 
-        "date_received": "27/05/2020", 
-        "total_detected": 0, 
-        "total_dispensed": 0, 
-        "total_ignored": 0
-    }
-    """
-    # Report on each variable over a time period (such as a week) and comparasion to other dispensers
-
-    # Gonna test with a local file
-    global log_database
-
-    log_database = {}
-
-    try:
-        with open("log_database.json") as f:
-            log_database = json.load(f) # load devices.json as a dict
-            #print(log_database)
-    except:
-        print("Unable to load file log_database.json")
-
-    # device ID list
-    devices = ["device_" + str(i) for i in range(10)]
-
+def run(devices, log_database):
     # produce and save graphs based on log file data
     graph_names = produce_graphs(devices, log_database)
 
     # produce and save a summary of collected statistics
     produce_report(devices, log_database, graph_names)
 
-    return "index.html"
+    # return name of template for Flask
+    return "report.html"
 
 if __name__ == '__main__':
-    run()
+    # Access files, produce graphs and a report on the matter
+    # Data to report on:
+    #    - Usgae Statistics from the dispensers
+    #    - Log dict is indexed by device ids
+    #    - Info from dispensers in the form:
+    """
+    {
+        'dispenses': [{'time': '14:51:18', 'volume': 1.2}, {'time': '14:51:28', 'volume': 1.2}, {'time': '14:52:00', 'volume': 1.2}, {'time': '14:52:08', 'volume': 1.2}],
+        'total_dispensed': 4,
+        'currentVolume': 0,
+        'total_detected': 0,
+        'total_ignores': 0,
+        'Last Updated': DatetimeWithNanoseconds(2020, 6, 15, 13, 52, 8, 664000, tzinfo=<UTC>) # Note: only concerned about the first three integers in the Date i.e. year, month, day
+    }
+
+    """
+    # Report on each variable over a time period (such as a week) and comparasion to other dispensers
+
+    # Gonna test with a local file
+
+    log_database = {}
+
+    try:
+        with open("log_database.json") as f:
+            log_database = json.load(f) # load devices.json as a dict
+            
+    except:
+        print("Unable to load file log_database.json")
+
+    # device ID list
+    devices = ["device_" + str(i) for i in range(10)]
+
+    # run script
+    run(devices, log_database)
