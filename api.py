@@ -18,6 +18,8 @@ todays_date = str(date.today().strftime("%d-%m-%Y"))
 
 # Creates a flask app
 app = Flask(__name__)
+# Prevent flask from changing order of jsonify returns
+app.config['JSON_SORT_KEYS'] = False
 
 # Initialize Firestore DB
 cred = credentials.Certificate('ServiceAccountKey.json')
@@ -177,20 +179,34 @@ def access_specific_device_list():
 
         # Check if ID was passed to URL query
         device_id = query_parameters.get('id')
+        # Document snapshot
+        device = devices_ref.document(device_id).get()
 
-        if device_id:
-            # devices_ref is a collections refernce object
-            device = devices_ref.document(device_id).get() # document snapshot
+        if device_id and device.exists:
+            logs_d = {}
 
-            # col = devices_ref.document(device_id).collection('logs')
-            # colection within devices collection called logs, denoted by device_ids
-            
-            return jsonify(device.to_dict()), 200
+            logs_ref = devices_ref.document(device_id).collection(u'logs')
+            docs = logs_ref.stream()
 
-        else:
-            return "Error: No device id provided. Please specify an id."
+            # For each date add the log file
+            for doc in docs:
+                logs_d[doc.id] = doc.to_dict()
+
+            # Add the device data
+            this_device = [doc.to_dict() for doc in devices_ref.stream() if str(doc.id) == str(device_id)]
+            logs_d[device_id] = this_device
+
+            return logs_d
+
+        elif device_id and not device.exists:
+            return jsonify("ERROR: Device does not exist")
+
+        elif not device_id:
+            return jsonify("Error: No device id provided. Please specify an id.")
+
     except Exception as e:
-        return Response(f"An Error Occured: {e}")
+        return jsonify(f"An Error Occured: {e}")
+
 
 
 def add_new_device():
