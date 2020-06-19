@@ -1,44 +1,46 @@
 #!flask/bin/python
-
 from flask import Flask, request, jsonify, Response, make_response, render_template, send_from_directory
 from firebase_admin import credentials, firestore, initialize_app
 from datetime import date, datetime
-#from flask_httpauth import HTTPBasicAuth
+# from flask_httpauth import HTTPBasicAuth
 from werkzeug.security import generate_password_hash, check_password_hash
 
 import socket
 import time
+import os
 
 # custom libraries
 from Dispenser import Dispenser
 import data_analysis
 
-# Get todays date
+# Get today's date
 todays_date = str(date.today().strftime("%d-%m-%Y"))
 
 # Creates a flask app
 app = Flask(__name__)
-# Prevent flask from changing order of jsonify returns
-app.config['JSON_SORT_KEYS'] = False
 
 # Initialize Firestore DB
 cred = credentials.Certificate('ServiceAccountKey.json')
 default_app = initialize_app(cred)
 db = firestore.client()
 
-# Reference to the devices collecton within the database
+# Reference to the devices collection within the database
 devices_ref = db.collection('devices')
 
-# Users authentification details
+# Users authentication details
 users = {
-    generate_password_hash("lXJdTRw8v27YDey2yBFSXg") : "john",
-    generate_password_hash("xfvl2OiOnd0bqhyWeUuABQ") : "mary"
+    generate_password_hash("lXJdTRw8v27YDey2yBFSXg"): "john",
+    generate_password_hash("xfvl2OiOnd0bqhyWeUuABQ"): "mary"
 }
 
-# Admin authentification
-admin =  generate_password_hash("3FJwnCg-fHhcwQP3c59u_w")
+# Admin authentication
+admin = generate_password_hash("3FJwnCg-fHhcwQP3c59u_w")
 
-# Authentification handling
+
+###########################################################
+####### Authentication Handling ###########################
+###########################################################
+
 def verify_password(password, admin_only=False):
     # Check if admin only
     if admin_only:
@@ -60,10 +62,12 @@ def verify_password(password, admin_only=False):
 def page_not_found(e):
     return "<h1>404</h1><p>The resource could not be found.</p>", 404
 
+
 # routing a call to path "/" to this method (root endpoint)
 @app.route("/", methods=["GET"])
 def home():
     return "<h1>Hello</h1>"
+
 
 # Example URL: http://192.168.1.9:8888/api/lXJdTRw8v27YDey2yBFSXg/devices?id=DONOTDELETE
 # routing a call to path "/devices" to this method
@@ -93,8 +97,10 @@ def general_call_handler(key):
             device_id = device_json['deviceID']
             return remove_device_collection(devices_ref.document(device_id), 10)
 
-    elif general_admission == False:
-        return Response("<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>", 401, mimetype="text/html")
+    elif not general_admission:
+        return Response(
+            "<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>", 401,
+            mimetype="text/html")
 
     return Response("<h3>ERROR: This URL does not accept the HTTP request sent</h3>", 501, mimetype="text/html")
 
@@ -106,26 +112,30 @@ def handle(key):
 
     # check api_key
     admission = verify_password(key)
-        
+
     if admission and request.method == "GET":
         return access_all_devices_list()
 
-    elif admission == False: # None returned from error
-        return Response("<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>", 401, mimetype="text/html")
-    
+    elif not admission:  # None returned from error
+        return Response(
+            "<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>", 401,
+            mimetype="text/html")
+
     return Response("<h3>ERROR: This URL does not accept the HTTP request sent</h3>", 501, mimetype="text/html")
+
 
 # Log file report
 @app.route("/api/<key>/report", methods=["GET"])
 def report_generator(key):
-
     # check api_key
     if not verify_password(key):
-        return Response("<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>", 401, mimetype="text/html")
+        return Response(
+            "<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>", 401,
+            mimetype="text/html")
 
     # run graph generator
     # run requires devices (list of devices on the network) and log files
-    
+
     # get device list
     all_devices_info = [doc.to_dict() for doc in devices_ref.stream()]
     # device_dict = jsonify(all_devices_info)
@@ -135,8 +145,8 @@ def report_generator(key):
 
     # extract device ids only
     devices = []
-    for d in all_devices_info:              # for dictionary in all_devices
-        devices.append(d[u"deviceID"]) # extract ID
+    for d in all_devices_info:  # for dictionary in all_devices
+        devices.append(d[u"deviceID"])  # extract ID
 
     for device_id in devices:
         # reference the location of the log files
@@ -154,10 +164,12 @@ def report_generator(key):
     # render website
     return render_template(website), 200
 
+
 # Browser Icon
 @app.route("/favicon.ico")
 def favicon():
-    return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico', mimetype='image/vnd.microsoft.icon')
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico',
+                               mimetype='image/vnd.microsoft.icon')
 
 
 ###########################################################
@@ -206,7 +218,6 @@ def access_specific_device_list():
 
     except Exception as e:
         return jsonify(f"An Error Occured: {e}")
-
 
 
 def add_new_device():
@@ -266,7 +277,7 @@ def update_usage_log_file():
         if get_log.exists:
             # Atomically add a new dispense to the 'dispenses' array field.
             todays_log.update({u'dispenses': firestore.ArrayUnion([data])})
-            # Delays are needed to seperate firestore operation
+            # Delays are needed to separate firestore operation
             time.sleep(0.1)
 
             # Add server timestamp to logs
