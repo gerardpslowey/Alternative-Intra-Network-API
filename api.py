@@ -3,13 +3,15 @@
 from flask import Flask, request, jsonify, Response, make_response, render_template, send_from_directory
 from firebase_admin import credentials, firestore, initialize_app
 from datetime import date, datetime
+#from flask_httpauth import HTTPBasicAuth
+from werkzeug.security import generate_password_hash, check_password_hash
 
 import socket
 import time
-import data_analysis
 
 # custom libraries
 from Dispenser import Dispenser
+import data_analysis
 
 # Get todays date
 todays_date = str(date.today().strftime("%d-%m-%Y"))
@@ -22,8 +24,29 @@ cred = credentials.Certificate('ServiceAccountKey.json')
 default_app = initialize_app(cred)
 db = firestore.client()
 
-# Reference to the devices collection within the database
+# Reference to the devices collecton within the database
 devices_ref = db.collection('devices')
+
+# Users authentification details
+users = {
+    generate_password_hash("lXJdTRw8v27YDey2yBFSXg") : "john",
+    generate_password_hash("xfvl2OiOnd0bqhyWeUuABQ") : "mary"
+}
+
+# Admin authentification
+admin =  generate_password_hash("3FJwnCg-fHhcwQP3c59u_w")
+
+# Authentification handling
+def verify_password(password, admin_only=False):
+    # Check if admin only
+    if admin_only:
+        return check_password_hash(admin, password)
+
+    for key in users:
+        # check every hash
+        if check_password_hash(key, password):
+            return True
+    return False
 
 
 ###########################################################
@@ -35,59 +58,72 @@ devices_ref = db.collection('devices')
 def page_not_found(e):
     return "<h1>404</h1><p>The resource could not be found.</p>", 404
 
-
 # routing a call to path "/" to this method (root endpoint)
 @app.route("/", methods=["GET"])
 def home():
-    return "<h1>Hello there</h1>"
+    return "<h1>Hello</h1>"
+
+# Example URL: http://192.168.1.9:8888/api/lXJdTRw8v27YDey2yBFSXg/devices?id=DONOTDELETE
+# routing a call to path "/devices" to this method
+@app.route("/api/<key>/devices", methods=["GET", "POST", "PUT", "DELETE"])
+def general_call_handler(key):
+    # GET Handler
+
+    # check api_key
+    general_admission = verify_password(key)
+    print(general_admission)
+    print(key)
+
+    if general_admission:
+        if request.method == "GET":
+            return access_specific_device_list()
+
+    # if api key is admin
+    elif verify_password(key, admin_only=True):
+        if request.method == "POST":
+            return add_new_device()
+
+        elif request.method == "PUT":
+            return update_usage_log_file()
+
+        elif request.method == "DELETE":
+            device_json = request.json
+            device_id = device_json['deviceID']
+            return remove_device_collection(devices_ref.document(device_id), 10)
+
+    elif general_admission == False:
+        return Response("<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>", 401, mimetype="text/html")
+
+    return Response("<h3>ERROR: This URL does not accept the HTTP request sent</h3>", 501, mimetype="text/html")
 
 
 # routing a call to path "/devices" to this method
-@app.route("/api/devices", methods=["GET", "POST", "PUT", "DELETE"])
-def general_call_handler():
+@app.route("/api/<key>/devices/all", methods=["GET"])
+def handle(key):
     # GET Handler
-    if request.method == "GET":
-        return access_specific_device_list()
 
-    elif request.method == "POST":
-        return add_new_device()
-
-    elif request.method == "PUT":
-        return update_usage_log_file()
-
-    elif request.method == "DELETE":
-        device_json = request.json
-        device_id = device_json['deviceID']
-        return remove_device_collection(devices_ref.document(device_id), 10)
-    else:
-        return Response("<h3>ERROR: This URL does not accept the HTTP request sent</h3>", 501,
-                        mimetype="text/html")
-
-
-# routing a call to path "/devices" to this method
-@app.route("/api/devices/all", methods=["GET"])
-def handle():
-    # GET Handler
-    if request.method == "GET":
+    # check api_key
+    admission = verify_password(key)
+        
+    if admission and request.method == "GET":
         return access_all_devices_list()
-    else:
-        return Response("<h3>ERROR: This URL does not accept the HTTP request sent</h3>", 501,
-                        mimetype="text/html")
 
-
-# Browser Icon
-@app.route("/favicon.ico")
-def favicon():
-    return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico',
-                               mimetype='image/vnd.microsoft.icon')
-
+    elif admission == False: # None returned from error
+        return Response("<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>", 401, mimetype="text/html")
+    
+    return Response("<h3>ERROR: This URL does not accept the HTTP request sent</h3>", 501, mimetype="text/html")
 
 # Log file report
-@app.route("/report", methods=["GET"])
-def report_generator():
+@app.route("/api/<key>/report", methods=["GET"])
+def report_generator(key):
+
+    # check api_key
+    if not verify_password(key):
+        return Response("<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>", 401, mimetype="text/html")
+
     # run graph generator
     # run requires devices (list of devices on the network) and log files
-
+    
     # get device list
     all_devices_info = [doc.to_dict() for doc in devices_ref.stream()]
     # device_dict = jsonify(all_devices_info)
@@ -97,8 +133,8 @@ def report_generator():
 
     # extract device ids only
     devices = []
-    for d in all_devices_info:  # for dictionary in all_devices
-        devices.append(d[u"deviceID"])  # extract ID
+    for d in all_devices_info:              # for dictionary in all_devices
+        devices.append(d[u"deviceID"]) # extract ID
 
     for device_id in devices:
         # reference the location of the log files
@@ -111,17 +147,21 @@ def report_generator():
 
             log_dict[device_id] = [doc.to_dict() for doc in stream]
 
-            # log_array = device_logs.document(device_id) # DocumentSnapshot
-
     website = data_analysis.run(devices, log_dict)
 
     # render website
     return render_template(website), 200
 
+# Browser Icon
+@app.route("/favicon.ico")
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico', mimetype='image/vnd.microsoft.icon')
+
 
 ###########################################################
 ####### Database Functions ################################
 ###########################################################
+
 
 def access_all_devices_list():
     try:
@@ -139,12 +179,12 @@ def access_specific_device_list():
         device_id = query_parameters.get('id')
 
         if device_id:
-            # devices_ref is a collections reference object
-            device = devices_ref.document(device_id).get()  # document snapshot
+            # devices_ref is a collections refernce object
+            device = devices_ref.document(device_id).get() # document snapshot
 
             # col = devices_ref.document(device_id).collection('logs')
-            # collection within devices collection called logs, denoted by device_ids
-
+            # colection within devices collection called logs, denoted by device_ids
+            
             return jsonify(device.to_dict()), 200
 
         else:
@@ -166,6 +206,9 @@ def add_new_device():
         # Check if the device already exists
         device_ref = devices_ref.document(deviceID)
         device = device_ref.get()
+
+        device_ref_logs = devices_ref.document(deviceID).collection(u'logs')
+        todays_log = device_ref_logs.document(todays_date)
 
         # Return an error message if it already is in the list
         if device.exists:
@@ -195,23 +238,19 @@ def update_usage_log_file():
     }
 
     # Get the deviceID from the JSON body sent
-    deviceID = request.json['deviceID']
+    device_id = request.json['deviceID']
 
     # Get the location of todays log
-    device_ref_logs = devices_ref.document(deviceID).collection(u'logs')
+    device_ref_logs = devices_ref.document(device_id).collection(u'logs')
     todays_log = device_ref_logs.document(todays_date)
-
-    # Check if the device already exists
-    device_ref = devices_ref.document(deviceID)
-    device = device_ref.get()
 
     get_log = todays_log.get()
 
     try:
-        if device.exists and get_log.exists:
+        if get_log.exists:
             # Atomically add a new dispense to the 'dispenses' array field.
             todays_log.update({u'dispenses': firestore.ArrayUnion([data])})
-            # Delays are needed to separate firestore operations
+            # Delays are needed to seperate firestore operation
             time.sleep(0.1)
 
             # Add server timestamp to logs
@@ -222,10 +261,11 @@ def update_usage_log_file():
 
             # Increase total_dispensed value
             todays_log.update({"total_dispensed": firestore.Increment(1)})
+            # Need to implement distributed counter here!!!!!!!!!!!!!!!
 
             return "Log file successfully updated"
 
-        elif device.exists and not get_log.exists:
+        else:
             # Create the log and update
             todays_log.set({
                 u'dispenses': [
@@ -241,15 +281,13 @@ def update_usage_log_file():
 
             return "Log file successfully updated"
 
-        elif not device.exists:
-            return "No such device exists"
-
     except Exception as e:
         return f"An Error Occurred: {e}"
 
 
 def remove_device_collection(doc_ref, batch_size):
     try:
+
         col_ref = doc_ref.collection('logs')
         # Limit deletes at a time, prevent memory errors
         docs = col_ref.limit(batch_size).stream()
@@ -276,7 +314,7 @@ def remove_device_collection(doc_ref, batch_size):
             return Response("Error: No such device!\n")
 
     except Exception as e:
-        return f"An Error Occurred: {e}"
+        return f"An Error Occured: {e}"
 
 
 # run on ip address of machine
