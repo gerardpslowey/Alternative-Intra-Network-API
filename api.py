@@ -5,11 +5,12 @@ from datetime import date, datetime
 # from flask_httpauth import HTTPBasicAuth
 from werkzeug.security import generate_password_hash, check_password_hash
 
+# Networking requirements
 import socket
 import time
 import os
 
-# custom libraries
+# Custom libraries
 from Dispenser import Dispenser
 import data_analysis
 
@@ -63,7 +64,7 @@ def page_not_found(e):
     return "<h1>404</h1><p>The resource could not be found.</p>", 404
 
 
-# routing a call to path "/" to this method (root endpoint)
+# Routing a call to path "/" to this method (root endpoint)
 @app.route("/", methods=["GET"])
 def home():
     return "<h1>Hello</h1>"
