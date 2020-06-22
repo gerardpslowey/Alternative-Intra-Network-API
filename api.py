@@ -264,18 +264,17 @@ def update_usage_log_file():
         # dispensing volume hardcoded for the minute
         # consider implementing a getDispensedVolume() function (this will be in te raspberry pi code)
     }
-
-    # Get the deviceID from the JSON body sent
-    device_id = request.json['deviceID']
-
-    # Get the location of todays log
-    device_ref_logs = devices_ref.document(device_id).collection(u'logs')
-    todays_log = device_ref_logs.document(todays_date)
-
-    get_log = todays_log.get()
-
     try:
-        if get_log.exists:
+        # Get the deviceID from the JSON body sent
+        device_id = request.json['deviceID']
+        device = devices_ref.document(device_id).get()
+
+        # Get the location of todays log
+        device_ref_logs = devices_ref.document(device_id).collection(u'logs')
+        todays_log = device_ref_logs.document(todays_date)
+        get_log = todays_log.get()
+
+        if device_id and device.exists and get_log.exists:
             # Atomically add a new dispense to the 'dispenses' array field.
             todays_log.update({u'dispenses': firestore.ArrayUnion([data])})
             # Delays are needed to separate firestore operation
@@ -289,11 +288,10 @@ def update_usage_log_file():
 
             # Increase total_dispensed value
             todays_log.update({"total_dispensed": firestore.Increment(1)})
-            # Need to implement distributed counter here!!!!!!!!!!!!!!!
 
             return "Log file successfully updated"
 
-        else:
+        elif device_id and device.exists and not get_log.exists:
             # Create the log and update
             todays_log.set({
                 u'dispenses': [
@@ -309,8 +307,14 @@ def update_usage_log_file():
 
             return "Log file successfully updated"
 
+        elif not device.exists:
+            return jsonify("ERROR: Device does not exist")
+
+        elif not device_id:
+            return jsonify("ERROR: No device id provided")
+
     except Exception as e:
-        return f"An Error Occurred: {e}"
+        return jsonify(f"An Error Occurred: {e}, not provided")
 
 
 def remove_device_collection(doc_ref, batch_size):
@@ -342,7 +346,7 @@ def remove_device_collection(doc_ref, batch_size):
             return Response("Error: No such device!\n")
 
     except Exception as e:
-        return f"An Error Occured: {e}"
+        return f"An Error Occurred: {e}"
 
 
 # run on ip address of machine
