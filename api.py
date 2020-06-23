@@ -46,14 +46,13 @@ def create_app():
 
     def verify_password(password, admin_only=False):
         # Check if admin only
-        if admin_only:
-            return check_password_hash(admin, password)
+        if not admin_only:
+            for key in users:
+                # check every hash
+                if check_password_hash(key, password):
+                    return True
 
-        for key in users:
-            # check every hash
-            if check_password_hash(key, password):
-                return True
-        return False
+        return check_password_hash(admin, password)
 
 
     ###########################################################
@@ -67,8 +66,11 @@ def create_app():
 
     @app.errorhandler(501)
     def server_error(e):
-        return Response("<h3>ERROR: This URL does not accept the HTTP request sent</h3>", 501, mimetype="text/html")
+        return Response("<h3>ERROR: This URL does not accept the HTTP request sent. Please consult the API documentation</h3>", 501, mimetype="text/html")
 
+    @app.errorhandler(500)
+    def server_error(e):
+        return Response("<h3>ERROR: The HTTP request sent caused a server error. Please consult the API documentation or contact the Network Adminstrator</h3>", 501, mimetype="text/html")
 
     # Routing a call to path "/" to this method (root endpoint)
     @app.route("/", methods=["GET"])
@@ -173,79 +175,67 @@ def create_app():
 
 
     def access_all_devices_list():
-        try:
-            all_devices = [doc.to_dict() for doc in devices_ref.stream()]
-            return jsonify(all_devices), 200
-        except Exception as e:
-            return f"An Error Occured: {e}"
+        all_devices = [doc.to_dict() for doc in devices_ref.stream()]
+        return jsonify(all_devices), 200
 
 
     def access_specific_device_list():
-        try:
-            query_parameters = request.args
+        query_parameters = request.args
 
-            # Check if ID was passed to URL query
-            device_id = query_parameters.get('id')
-            # Document snapshot
-            device = devices_ref.document(device_id).get()
+        # Check if ID was passed to URL query
+        device_id = query_parameters.get('id')
+        # Document snapshot
+        device = devices_ref.document(device_id).get()
 
-            if device_id and device.exists:
-                logs_d = {}
+        if device_id and device.exists:
+            logs_d = {}
 
-                logs_ref = devices_ref.document(device_id).collection(u'logs')
-                docs = logs_ref.stream()
+            logs_ref = devices_ref.document(device_id).collection(u'logs')
+            docs = logs_ref.stream()
 
-                # For each date add the log file
-                for doc in docs:
-                    logs_d[doc.id] = doc.to_dict()
+            # For each date add the log file
+            for doc in docs:
+                logs_d[doc.id] = doc.to_dict()
 
-                # Add the device data
-                this_device = [doc.to_dict() for doc in devices_ref.stream() if str(doc.id) == str(device_id)]
-                logs_d[device_id] = this_device
+            # Add the device data
+            this_device = [doc.to_dict() for doc in devices_ref.stream() if str(doc.id) == str(device_id)]
+            logs_d[device_id] = this_device
 
-                return logs_d
+            return logs_d
 
-            elif device_id and not device.exists:
-                return jsonify("ERROR: Device does not exist")
+        elif device_id and not device.exists:
+            return Response("<h3>ERROR: Device does not exist</h3>", 404, mimetype="text/html")
 
-            elif not device_id:
-                return jsonify("Error: No device id provided. Please specify an id.")
-
-        except Exception as e:
-            return jsonify(f"An Error Occured: {e}")
-
+        elif not device_id:
+            return Response("<h3>ERROR: No device id provided. Please specify an id or consult docs</h3>", 405, mimetype="text/html")
 
     def add_new_device():
-        try:
-            device_info = request.json
+        device_info = request.json
 
-            # Extract the device details from the endpoint request
-            deviceID = device_info['deviceID']
-            deviceName = device_info['deviceName']
-            gatewayController = device_info['gatewayController']
-            volumeAvailable = device_info['volumeAvailable']
+        # Extract the device details from the endpoint request
+        deviceID = device_info['deviceID']
+        deviceName = device_info['deviceName']
+        gatewayController = device_info['gatewayController']
+        volumeAvailable = device_info['volumeAvailable']
 
-            # Check if the device already exists
-            device_ref = devices_ref.document(deviceID)
-            device = device_ref.get()
+        # Check if the device already exists
+        device_ref = devices_ref.document(deviceID)
+        device = device_ref.get()
 
-            device_ref_logs = devices_ref.document(deviceID).collection(u'logs')
-            todays_log = device_ref_logs.document(todays_date)
+        device_ref_logs = devices_ref.document(deviceID).collection(u'logs')
+        todays_log = device_ref_logs.document(todays_date)
 
-            # Return an error message if it already is in the list
-            if device.exists:
-                return "ERROR: Device with deviceID already exists!\n"
+        # Return an error message if it already is in the list
+        if device.exists:
+            return Response("<h3>ERROR: Device with deviceID already exists!</h3>", 405, mimetype="text/html")
 
-            # If it doesn't, add it as a new device
-            else:
-                # Create instance of Dispenser class
-                device = Dispenser(deviceID, deviceName, gatewayController, volumeAvailable)
-                devices_ref.document(deviceID).set(device.to_dict())
+        # If it doesn't, add it as a new device
+        else:
+            # Create instance of Dispenser class
+            device = Dispenser(deviceID, deviceName, gatewayController, volumeAvailable)
+            devices_ref.document(deviceID).set(device.to_dict())
 
-                return Response("Device Successfully Added"), 200
-
-        except Exception as e:
-            return f"An Error Occurred: {e}"
+            return Response("<h3>Device Successfully Added</h3>", 201, mimetype="text/html")
 
 
     def update_usage_log_file():
@@ -258,89 +248,79 @@ def create_app():
             # dispensing volume hardcoded for the minute
             # consider implementing a getDispensedVolume() function (this will be in te raspberry pi code)
         }
-        try:
-            # Get the deviceID from the JSON body sent
-            device_id = request.json['deviceID']
-            device = devices_ref.document(device_id).get()
+        # Get the deviceID from the JSON body sent
+        device_id = request.json['deviceID']
+        device = devices_ref.document(device_id).get()
 
-            # Get the location of todays log
-            device_ref_logs = devices_ref.document(device_id).collection(u'logs')
-            todays_log = device_ref_logs.document(todays_date)
-            get_log = todays_log.get()
+        # Get the location of todays log
+        device_ref_logs = devices_ref.document(device_id).collection(u'logs')
+        todays_log = device_ref_logs.document(todays_date)
+        get_log = todays_log.get()
 
-            if device_id and device.exists and get_log.exists:
-                # Atomically add a new dispense to the 'dispenses' array field.
-                todays_log.update({u'dispenses': firestore.ArrayUnion([data])})
-                # Delays are needed to separate firestore operation
-                time.sleep(0.1)
+        if device_id and device.exists and get_log.exists:
+            # Atomically add a new dispense to the 'dispenses' array field.
+            todays_log.update({u'dispenses': firestore.ArrayUnion([data])})
+            # Delays are needed to separate firestore operation
+            time.sleep(0.1)
 
-                # Add server timestamp to logs
-                todays_log.set({
-                    u'Last Updated': firestore.SERVER_TIMESTAMP
-                }, merge=True)
-                time.sleep(0.1)
+            # Add server timestamp to logs
+            todays_log.set({
+                u'Last Updated': firestore.SERVER_TIMESTAMP
+            }, merge=True)
+            time.sleep(0.1)
 
-                # Increase total_dispensed value
-                todays_log.update({"total_dispensed": firestore.Increment(1)})
+            # Increase total_dispensed value
+            todays_log.update({"total_dispensed": firestore.Increment(1)})
 
-                return "Log file successfully updated"
+            return "Log file successfully updated"
 
-            elif device_id and device.exists and not get_log.exists:
-                # Create the log and update
-                todays_log.set({
-                    u'dispenses': [
+        elif device_id and device.exists and not get_log.exists:
+            # Create the log and update
+            todays_log.set({
+                u'dispenses': [
 
-                    ],
-                    u'currentVolume': 0,
-                    u'total_detected': 0,
-                    u'total_dispensed': 0,
-                    u'total_ignores': 0
-                })
+                ],
+                u'currentVolume': 0,
+                u'total_detected': 0,
+                u'total_dispensed': 0,
+                u'total_ignores': 0
+            })
 
-                update_usage_log_file()
+            update_usage_log_file()
 
-                return "Log file successfully updated"
+            return Response("<h3>Log file successfully updated</h3>", 200, mimetype="text/html")
 
-            elif not device.exists:
-                return jsonify("ERROR: Device does not exist")
+        elif not device.exists:
+            return Response("<h3>ERROR: Device does not exist</h3>", 404, mimetype="text/html")
 
-            elif not device_id:
-                return jsonify("ERROR: No device id provided")
-
-        except Exception as e:
-            return jsonify(f"An Error Occurred: {e}, not provided")
-
+        elif not device_id:
+            return Response("<h3>ERROR: No device id provided. Please specify an id or consult docs</h3>", 405, mimetype="text/html")
 
     def remove_device_collection(doc_ref, batch_size):
-        try:
+        col_ref = doc_ref.collection('logs')
+        # Limit deletes at a time, prevent memory errors
+        docs = col_ref.limit(batch_size).stream()
+        deleted = 0
 
-            col_ref = doc_ref.collection('logs')
-            # Limit deletes at a time, prevent memory errors
-            docs = col_ref.limit(batch_size).stream()
-            deleted = 0
+        device = doc_ref.get()
 
-            device = doc_ref.get()
+        # Check the device exists to be deleted
+        if device.exists:
+            # Start by deleting logs
+            for doc in docs:
+                print(f'Deleting doc {doc.id} => {doc.to_dict()}')
+                doc.reference.delete()
+                deleted = deleted + 1
 
-            # Check the device exists to be deleted
-            if device.exists:
-                # Start by deleting logs
-                for doc in docs:
-                    print(f'Deleting doc {doc.id} => {doc.to_dict()}')
-                    doc.reference.delete()
-                    deleted = deleted + 1
+            if deleted >= batch_size:
+                return remove_device_collection(doc_ref, batch_size)
 
-                if deleted >= batch_size:
-                    return remove_device_collection(doc_ref, batch_size)
+            # Then delete the base document
+            doc_ref.delete()
+            return Response("<h3>Device successfully deleted</h3>", 200, mimetype="text/html")
 
-                # Then delete the base document
-                doc_ref.delete()
-                return "Device successfully deleted"
-
-            else:
-                return Response("Error: No such device!\n")
-
-        except Exception as e:
-            return f"An Error Occurred: {e}"
+        else:
+            return Response("<h3>ERROR: Device does not exist</h3>", 404, mimetype="text/html")
 
 
     # run on ip address of machine
