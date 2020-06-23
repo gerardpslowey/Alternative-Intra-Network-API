@@ -63,14 +63,17 @@ def create_app():
     # Error Handling
     @app.errorhandler(404)
     def page_not_found(e):
-        return "<h1>404</h1><p>The resource could not be found.</p>", 404
+        return Response("<h1>404</h1><p>The resource could not be found.</p>", 404, mimetype="text/html")
+
+    @app.errorhandler(501)
+    def server_error(e):
+        return Response("<h3>ERROR: This URL does not accept the HTTP request sent</h3>", 501, mimetype="text/html")
 
 
     # Routing a call to path "/" to this method (root endpoint)
     @app.route("/", methods=["GET"])
     def home():
         return "<h1>Hello</h1>"
-
 
     # Example URL: http://192.168.1.9:8888/api/lXJdTRw8v27YDey2yBFSXg/devices?id=DONOTDELETE
     # routing a call to path "/devices" to this method
@@ -80,8 +83,6 @@ def create_app():
 
         # check api_key
         general_admission = verify_password(key)
-        print(general_admission)
-        print(key)
 
         if general_admission:
             if request.method == "GET":
@@ -100,12 +101,11 @@ def create_app():
                 device_id = device_json['deviceID']
                 return remove_device_collection(devices_ref.document(device_id), 10)
 
-        elif not general_admission:
-            return Response(
-                "<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>", 401,
-                mimetype="text/html")
+            else:
+                return Response("<h3>ERROR: This URL content is forbidden to this user</h3>", 403, mimetype="text/html")
 
-        return Response("<h3>ERROR: This URL does not accept the HTTP request sent</h3>", 501, mimetype="text/html")
+        elif not general_admission:
+            return Response("<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>", 401, mimetype="text/html")
 
 
     # routing a call to path "/devices" to this method
@@ -120,21 +120,14 @@ def create_app():
             return access_all_devices_list()
 
         elif not admission:  # None returned from error
-            return Response(
-                "<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>", 401,
-                mimetype="text/html")
-
-        return Response("<h3>ERROR: This URL does not accept the HTTP request sent</h3>", 501, mimetype="text/html")
-
+            return Response("<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>", 401, mimetype="text/html")
 
     # Log file report
     @app.route("/api/<key>/report", methods=["GET"])
     def report_generator(key):
         # check api_key
         if not verify_password(key):
-            return Response(
-                "<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>", 401,
-                mimetype="text/html")
+            return Response("<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>", 401, mimetype="text/html")
 
         # run graph generator
         # run requires devices (list of devices on the network) and log files
