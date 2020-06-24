@@ -1,8 +1,7 @@
 #!flask/bin/python
-from flask import Flask, request, jsonify, Response, make_response, render_template, send_from_directory
+from flask import Flask, request, jsonify, Response, render_template, send_from_directory
 from firebase_admin import credentials, firestore, initialize_app
 from datetime import date, datetime
-# from flask_httpauth import HTTPBasicAuth
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # Networking requirements
@@ -39,7 +38,6 @@ def create_app():
     # Admin authentication
     admin = generate_password_hash("3FJwnCg-fHhcwQP3c59u_w")
 
-
     ###########################################################
     ####### Authentication Handling ###########################
     ###########################################################
@@ -54,7 +52,6 @@ def create_app():
 
         return check_password_hash(admin, password)
 
-
     ###########################################################
     ####### Routing Handling ##################################
     ###########################################################
@@ -66,11 +63,15 @@ def create_app():
 
     @app.errorhandler(501)
     def server_error(e):
-        return Response("<h3>ERROR: This URL does not accept the HTTP request sent. Please consult the API documentation</h3>", 501, mimetype="text/html")
+        return Response(
+            "<h3>ERROR: This URL does not accept the HTTP request sent. Please consult the API documentation</h3>", 501,
+            mimetype="text/html")
 
     @app.errorhandler(500)
     def server_error(e):
-        return Response("<h3>ERROR: The HTTP request sent caused a server error. Please consult the API documentation or contact the Network Adminstrator</h3>", 501, mimetype="text/html")
+        return Response(
+            "<h3>ERROR: The HTTP request sent caused a server error. Please consult the API documentation or contact the Network Adminstrator</h3>",
+            501, mimetype="text/html")
 
     # Routing a call to path "/" to this method (root endpoint)
     @app.route("/", methods=["GET"])
@@ -107,8 +108,9 @@ def create_app():
                 return Response("<h3>ERROR: This URL content is forbidden to this user</h3>", 403, mimetype="text/html")
 
         elif not general_admission:
-            return Response("<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>", 401, mimetype="text/html")
-
+            return Response(
+                "<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>",
+                401, mimetype="text/html")
 
     # routing a call to path "/devices" to this method
     @app.route("/api/<key>/devices/all", methods=["GET"])
@@ -122,14 +124,18 @@ def create_app():
             return access_all_devices_list()
 
         elif not admission:  # None returned from error
-            return Response("<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>", 401, mimetype="text/html")
+            return Response(
+                "<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>",
+                401, mimetype="text/html")
 
     # Log file report
     @app.route("/api/<key>/report", methods=["GET"])
     def report_generator(key):
         # check api_key
         if not verify_password(key):
-            return Response("<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>", 401, mimetype="text/html")
+            return Response(
+                "<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>",
+                401, mimetype="text/html")
 
         # run graph generator
         # run requires devices (list of devices on the network) and log files
@@ -162,22 +168,19 @@ def create_app():
         # render website
         return render_template(website), 200
 
-
     # Browser Icon
     @app.route("/favicon.ico")
     def favicon():
-        return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico', mimetype='image/vnd.microsoft.icon')
-
+        return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico',
+                                   mimetype='image/vnd.microsoft.icon')
 
     ###########################################################
     ####### Database Functions ################################
     ###########################################################
 
-
     def access_all_devices_list():
         all_devices = [doc.to_dict() for doc in devices_ref.stream()]
         return jsonify(all_devices), 200
-
 
     def access_specific_device_list():
         query_parameters = request.args
@@ -207,7 +210,8 @@ def create_app():
             return Response("<h3>ERROR: Device does not exist</h3>", 404, mimetype="text/html")
 
         elif not device_id:
-            return Response("<h3>ERROR: No device id provided. Please specify an id or consult docs</h3>", 405, mimetype="text/html")
+            return Response("<h3>ERROR: No device id provided. Please specify an id or consult docs</h3>", 405,
+                            mimetype="text/html")
 
     def add_new_device():
         device_info = request.json
@@ -236,7 +240,6 @@ def create_app():
             devices_ref.document(deviceID).set(device.to_dict())
 
             return Response("<h3>Device Successfully Added</h3>", 201, mimetype="text/html")
-
 
     def update_usage_log_file():
         current_time = str(datetime.now().strftime('%H:%M:%S'))
@@ -294,7 +297,8 @@ def create_app():
             return Response("<h3>ERROR: Device does not exist</h3>", 404, mimetype="text/html")
 
         elif not device_id:
-            return Response("<h3>ERROR: No device id provided. Please specify an id or consult docs</h3>", 405, mimetype="text/html")
+            return Response("<h3>ERROR: No device id provided. Please specify an id or consult docs</h3>", 405,
+                            mimetype="text/html")
 
     def remove_device_collection(doc_ref, batch_size):
         col_ref = doc_ref.collection('logs')
@@ -321,7 +325,6 @@ def create_app():
 
         else:
             return Response("<h3>ERROR: Device does not exist</h3>", 404, mimetype="text/html")
-
 
     # run on ip address of machine
     # print ip address to terminal
