@@ -108,8 +108,27 @@ def create_app():
                 return update_usage_log_file()
 
             elif request.method == "DELETE":
-                device_json = request.json
-                device_id = device_json['deviceID']
+
+                # Check device id is properly formatted
+                try:
+                    # Extract device id
+                    data = request.form
+                    device_id = data['deviceID']
+
+                    # Assert it's a string
+                    assert isinstance(device_id, str)
+
+                except AssertionError:
+                    return Response("<h3>ERROR: Bad Request: The request sent was malformed and did not contain possibly of the wrong type</h3>", 400, mimetype="text/html")
+
+                except KeyError:
+                    return Response("<h3>ERROR: Bad Request: The request sent was empty or is missing parameters</h3>", 400, mimetype="text/html")
+
+                except:
+                    return Response(
+                    "<h3>ERROR: Bad Request: This URL does not accept the HTTP request sent. Please consult the API documentation</h3>", 400,
+                    mimetype="text/html")
+
                 return remove_device_collection(devices_ref.document(device_id), 10)
 
             else: # User only has access to get requests
