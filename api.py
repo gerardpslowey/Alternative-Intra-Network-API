@@ -227,19 +227,45 @@ def create_app():
                             mimetype="text/html")
 
     def add_new_device():
-        device_info = request.json
+        device_info = {}
 
-        # Extract the device details from the endpoint request
-        deviceID = device_info['deviceID']
-        deviceName = device_info['deviceName']
-        gatewayController = device_info['gatewayController']
-        volumeAvailable = device_info['volumeAvailable']
+        try:
+            # Get data sent
+            device_info = request.form
+
+            # Extract the device details from the endpoint request and check formatting with assertions
+            assert u'deviceID' in device_info
+            assert isinstance(str(device_info[u'deviceID']), str)
+            device_id = device_info['deviceID']
+
+            assert u'deviceName' in device_info
+            assert isinstance(str(device_info[u'deviceName']), str)
+            deviceName = device_info['deviceName']
+
+            assert u'gatewayController' in device_info
+            assert isinstance(str(device_info[u'gatewayController']), str)
+            gatewayController = device_info['gatewayController']
+
+            assert u'volumeAvailable' in device_info
+            assert isinstance(float(device_info[u'volumeAvailable']), float)
+            volumeAvailable = device_info['volumeAvailable']
+
+        except AssertionError:
+            return Response("<h3>ERROR: Bad Request: The request sent was malformed and did not contain possibly of the wrong type</h3>", 400, mimetype="text/html")
+
+        except KeyError:
+            return Response("<h3>ERROR: Bad Request: The request sent was empty or is missing parameters</h3>", 400, mimetype="text/html")
+
+        except:
+            return Response(
+            "<h3>ERROR: Bad Request: This URL does not accept the HTTP request sent. Please consult the API documentation</h3>", 400,
+            mimetype="text/html")
 
         # Check if the device already exists
-        device_ref = devices_ref.document(deviceID)
+        device_ref = devices_ref.document(device_id)
         device = device_ref.get()
 
-        device_ref_logs = devices_ref.document(deviceID).collection(u'logs')
+        device_ref_logs = devices_ref.document(device_id).collection(u'logs')
         todays_log = device_ref_logs.document(todays_date)
 
         # Return an error message if it already is in the list
@@ -249,10 +275,11 @@ def create_app():
         # If it doesn't, add it as a new device
         else:
             # Create instance of Dispenser class
-            device = Dispenser(deviceID, deviceName, gatewayController, volumeAvailable)
-            devices_ref.document(deviceID).set(device.to_dict())
+            device = Dispenser(device_id, deviceName, gatewayController, volumeAvailable)
+            devices_ref.document(device_id).set(device.to_dict())
 
-            return Response("<h3>Device Successfully Added</h3>", 201, mimetype="text/html")
+            # HTTP status code 201 created has no response body
+            return Response(201, mimetype="text/html")
 
     def update_usage_log_file():
         # Get today's date and time
@@ -283,11 +310,11 @@ def create_app():
             assert isinstance(int(data[u'total_dispensed']), int)
 
             assert u'total_ignores' in data
-            assert isinstance(int(data[u'total_ignores']), int)
+            assert isinstance(float(data[u'total_ignores']), float)
 
             # Extract data
             data = {
-            u'currentVolume': int(data[u'currentVolume']),
+            u'currentVolume': float(data[u'currentVolume']),
             u'total_detected': int(data[u'total_detected']),
             u'total_dispensed': int(data[u'total_dispensed']),
             u'total_ignores': int(data[u'total_ignores'])
@@ -296,10 +323,15 @@ def create_app():
             assert len(data.keys()) == 4
 
         except AssertionError:
-            return Response("<h3>ERROR: Bad Request: The request sent was malformed and did not contain complete data</h3>", 400, mimetype="text/html")
+            return Response("<h3>ERROR: Bad Request: The request sent was malformed and did not contain possibly of the wrong type</h3>", 400, mimetype="text/html")
 
         except KeyError:
-            return Response("<h3>ERROR: Bad Request: The request sent was empty or contained incomplete data</h3>", 400, mimetype="text/html")
+            return Response("<h3>ERROR: Bad Request: The request sent was empty or is missing parameters</h3>", 400, mimetype="text/html")
+
+        except:
+            return Response(
+            "<h3>ERROR: Bad Request: This URL does not accept the HTTP request sent. Please consult the API documentation</h3>", 400,
+            mimetype="text/html")
 
         # Get the deviceID from the JSON body sent
         device = devices_ref.document(device_id).get()
