@@ -57,21 +57,25 @@ def create_app():
     ###########################################################
 
     # Error Handling
+
+    # File Not Found
     @app.errorhandler(404)
     def page_not_found(e):
         return Response("<h1>404</h1><p>The resource could not be found.</p>", 404, mimetype="text/html")
 
-    @app.errorhandler(501)
-    def server_error(e):
-        return Response(
-            "<h3>ERROR: This URL does not accept the HTTP request sent. Please consult the API documentation</h3>", 501,
-            mimetype="text/html")
-
+    # Server Error
     @app.errorhandler(500)
     def server_error(e):
         return Response(
             "<h3>ERROR: The HTTP request sent caused a server error. Please consult the API documentation or contact the Network Adminstrator</h3>",
-            501, mimetype="text/html")
+            500, mimetype="text/html")
+
+    # HTTP endpoint not implemented
+    @app.errorhandler(501)
+    def not_implemented(e):
+        return Response(
+            "<h3>ERROR: This URL does not accept the HTTP request sent. Please consult the API documentation</h3>", 501,
+            mimetype="text/html")
 
     # Routing a call to path "/" to this method (root endpoint)
     @app.route("/", methods=["GET"])
@@ -82,21 +86,25 @@ def create_app():
     # routing a call to path "/devices" to this method
     @app.route("/api/<key>/devices", methods=["GET", "POST", "PUT", "DELETE"])
     def general_call_handler(key):
-        # GET Handler
 
         # check api_key
         general_admission = verify_password(key)
 
-        if general_admission:
-            if request.method == "GET":
+        if request.method == "GET":
+            if general_admission:
                 return access_specific_device_list()
+
+            else: # User only has access to get requests
+                return Response("<h3>ERROR: This URL content is forbidden to this user</h3>", 403, mimetype="text/html")
 
         # if api key is admin
         elif verify_password(key, admin_only=True):
             if request.method == "POST":
+                # add new device
                 return add_new_device()
 
             elif request.method == "PUT":
+                # add new log file
                 return update_usage_log_file()
 
             elif request.method == "DELETE":
@@ -104,18 +112,18 @@ def create_app():
                 device_id = device_json['deviceID']
                 return remove_device_collection(devices_ref.document(device_id), 10)
 
-            else:
+            else: # User only has access to get requests
                 return Response("<h3>ERROR: This URL content is forbidden to this user</h3>", 403, mimetype="text/html")
 
-        elif not general_admission:
-            return Response(
-                "<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>",
-                401, mimetype="text/html")
+        # If neither conditions have been hit then return unauthorized 
+        return Response(
+            "<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>",
+            401, mimetype="text/html")
+
 
     # routing a call to path "/devices" to this method
     @app.route("/api/<key>/devices/all", methods=["GET"])
     def handle(key):
-        # GET Handler
 
         # check api_key
         admission = verify_password(key)
@@ -123,10 +131,14 @@ def create_app():
         if admission and request.method == "GET":
             return access_all_devices_list()
 
-        elif not admission:  # None returned from error
-            return Response(
+        #elif not admission:  # None returned from error
+        return Response(
                 "<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>",
                 401, mimetype="text/html")
+
+        # Return 404 handler
+        # return page_not_found(e=FileNotFoundError)
+
 
     # Log file report
     @app.route("/api/<key>/report", methods=["GET"])
@@ -166,7 +178,7 @@ def create_app():
         website = data_analysis.run(devices, log_dict)
 
         # render website
-        return render_template(website), 200
+        return render_template(website)
 
     # Browser Icon
     @app.route("/favicon.ico")
@@ -187,6 +199,7 @@ def create_app():
 
         # Check if ID was passed to URL query
         device_id = query_parameters.get('id')
+
         # Document snapshot
         device = devices_ref.document(device_id).get()
 
@@ -209,7 +222,7 @@ def create_app():
         elif device_id and not device.exists:
             return Response("<h3>ERROR: Device does not exist</h3>", 404, mimetype="text/html")
 
-        elif not device_id:
+        else:
             return Response("<h3>ERROR: No device id provided. Please specify an id or consult docs</h3>", 405,
                             mimetype="text/html")
 
@@ -242,17 +255,53 @@ def create_app():
             return Response("<h3>Device Successfully Added</h3>", 201, mimetype="text/html")
 
     def update_usage_log_file():
+        # Get today's date and time
+        todays_date = str(date.today().strftime("%d-%m-%Y"))
         current_time = str(datetime.now().strftime('%H:%M:%S'))
 
-        # Format for a dispense record
-        data = {
-            u'time': current_time,
-            u'volume': 1.2
-            # dispensing volume hardcoded for the minute
-            # consider implementing a getDispensedVolume() function (this will be in te raspberry pi code)
-        }
+        # Get data from request
+        data =  {}
+
+        device_id = None   
+
+        try:
+            data = request.form
+
+            # Get the deviceID from the JSON body sent
+            assert u'deviceID' in data
+            device_id = data[u'deviceID']
+
+            # Assertion statements to show data is formatted correctly
+
+            assert u'currentVolume' in data
+            assert isinstance(int(data[u'currentVolume']), int)
+
+            assert u'total_detected' in data
+            assert isinstance(int(data[u'total_detected']), int)
+
+            assert u'total_dispensed' in data
+            assert isinstance(int(data[u'total_dispensed']), int)
+
+            assert u'total_ignores' in data
+            assert isinstance(int(data[u'total_ignores']), int)
+
+            # Extract data
+            data = {
+            u'currentVolume': int(data[u'currentVolume']),
+            u'total_detected': int(data[u'total_detected']),
+            u'total_dispensed': int(data[u'total_dispensed']),
+            u'total_ignores': int(data[u'total_ignores'])
+            }
+
+            assert len(data.keys()) == 4
+
+        except AssertionError:
+            return Response("<h3>ERROR: Bad Request: The request sent was malformed and did not contain complete data</h3>", 400, mimetype="text/html")
+
+        except KeyError:
+            return Response("<h3>ERROR: Bad Request: The request sent was empty or contained incomplete data</h3>", 400, mimetype="text/html")
+
         # Get the deviceID from the JSON body sent
-        device_id = request.json['deviceID']
         device = devices_ref.document(device_id).get()
 
         # Get the location of todays log
@@ -263,6 +312,7 @@ def create_app():
         if device_id and device.exists and get_log.exists:
             # Atomically add a new dispense to the 'dispenses' array field.
             todays_log.update({u'dispenses': firestore.ArrayUnion([data])})
+
             # Delays are needed to separate firestore operation
             time.sleep(0.1)
 
@@ -275,7 +325,7 @@ def create_app():
             # Increase total_dispensed value
             todays_log.update({"total_dispensed": firestore.Increment(1)})
 
-            return "Log file successfully updated"
+            return Response("<h3>Log file successfully updated</h3>", 201, mimetype="text/html")
 
         elif device_id and device.exists and not get_log.exists:
             # Create the log and update
@@ -289,6 +339,7 @@ def create_app():
                 u'total_ignores': 0
             })
 
+            # Call function again now that log file has been set
             update_usage_log_file()
 
             return Response("<h3>Log file successfully updated</h3>", 200, mimetype="text/html")
@@ -299,6 +350,11 @@ def create_app():
         elif not device_id:
             return Response("<h3>ERROR: No device id provided. Please specify an id or consult docs</h3>", 405,
                             mimetype="text/html")
+
+        return Response(
+            "<h3>ERROR: Bad Request: This URL does not accept the HTTP request sent. Please consult the API documentation</h3>", 400,
+            mimetype="text/html")
+
 
     def remove_device_collection(doc_ref, batch_size):
         col_ref = doc_ref.collection('logs')
@@ -323,8 +379,7 @@ def create_app():
             doc_ref.delete()
             return Response("<h3>Device successfully deleted</h3>", 200, mimetype="text/html")
 
-        else:
-            return Response("<h3>ERROR: Device does not exist</h3>", 404, mimetype="text/html")
+        return Response("<h3>ERROR: Device does not exist</h3>", 404, mimetype="text/html")
 
     # run on ip address of machine
     # print ip address to terminal
