@@ -1,3 +1,32 @@
+# Need to save the values taken from these sensors to log.JSON
+# Should be in the form:
+'''
+{ 
+    "currentVolume": 0, 
+    "dispenses": [
+      {
+        "time": "14:51:18", 
+        "volume": 1.2
+      }, 
+      {
+        "time": "14:51:28", 
+        "volume": 1.2
+      }, 
+      {
+        "time": "14:52:00", 
+        "volume": 1.2
+      }, 
+      {
+        "time": "14:52:08", 
+        "volume": 1.2
+      }
+    ], 
+    "total_detected": 5, 
+    "total_dispensed": 4, 
+    "total_ignores": 1
+}
+'''
+
 import RPi.GPIO as GPIO
 import time
 import sys
