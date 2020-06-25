@@ -97,9 +97,9 @@ def weight_cell_get_weight():
 
     if not EMULATE_HX711:
         import RPi.GPIO as GPIO
-        from emulated_weight_cell.hx711 import HX711
+        from hx711_files.hx711 import HX711
     else:
-        from emulated_hx711 import HX711
+        from hx711_files.emulated_hx711 import HX711
 
     def cleanAndExit():
         print("Cleaning...")
@@ -112,7 +112,7 @@ def weight_cell_get_weight():
 
     hx = HX711(5, 6)
 
-    # I've found out that, for some reason, the order of the bytes is not always the same between versions of python, numpy and the hx711 itself.
+    # I've found out that, for some reason, the order of the bytes is not always the same between versions of python, numpy and the hx711_files itself.
     # Still need to figure out why does it change.
     # If you're experiencing super random values, change these values to MSB or LSB until to get more stable values.
     # There is some code below to debug and log the order of the bits and the bytes.
@@ -127,6 +127,8 @@ def weight_cell_get_weight():
     # and I got numbers around 184000 when I added 2kg. So, according to the rule of thirds:
     # If 2000 grams is 184000 then 1000 grams is 184000 / 2000 = 92.
     # hx.set_reference_unit(113)
+
+    # Need actual cell to get referenceUnit
     hx.set_reference_unit(referenceUnit)
 
     hx.reset()
