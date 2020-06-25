@@ -87,7 +87,7 @@ def create_app():
     # Routing a call to path "/" to this method (root endpoint)
     @app.route("/", methods=["GET"])
     def home():
-        return "<h1>Hello</h1>"
+        return "<h1>Hello and Welcome</h1><h3>This is the home page of our API!</h3>"
 
     # Example URL: http://192.168.1.9:8888/api/lXJdTRw8v27YDey2yBFSXg/devices?id=DONOTDELETE
     # routing a call to path "/devices" to this method
