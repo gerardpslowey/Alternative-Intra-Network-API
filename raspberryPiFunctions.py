@@ -1,6 +1,6 @@
 import RPi.GPIO as GPIO
 import time
-import threading
+from threading import Thread
 
 GPIO.setwarnings(False)
 # Use BOARD mode to address numbers
@@ -11,26 +11,28 @@ GPIO.setmode(GPIO.BOARD)
 ##############################################
 
 ############# Buzzer #############
-# Buzzer is on pin 10
-BUZZER = 10
-GPIO.setup(BUZZER, GPIO.OUT, initial=GPIO.HIGH)  # Pin 10 as output
+BUZZER = 10  # Buzzer is on pin 10
+GPIO.setup(BUZZER, GPIO.OUT, initial=GPIO.LOW)  # Pin is output, initially set to off
 
 ######### PIR Sensor ############
-# PIR sensor is on pin 13
-PIR = 13
-LED = 3
+PIR = 13  # PIR sensor is on pin 13
 GPIO.setup(PIR, GPIO.IN)  # Read output from PIR motion sensor
+
+######## LED ####################
+LED = 3  # LED is on pin 3
 GPIO.setup(LED, GPIO.OUT)  # LED output pin
 
 ####### Motor for pump ##########
-# Pin 33 controls the motor speed
-MOTORSPEED = 33
-GPIO.setup(MOTORSPEED, GPIO.OUT)  # Set it as an output pin
+MOTOR = 33  # Pin 33 controls the motor speed
+GPIO.setup(MOTOR, GPIO.OUT)  # Set it as an output pin
+motorSpeed = GPIO.PWM(MOTOR, 100)  # PWM frequency is 100Hz on MOTOR pin
+motorSpeed.start(0)  # Start with a duty cycle of zero (it’s off)
 
 # Ultrasonic Sensor
 TRIGGER = 8  # Trigger is on pin 8
 ECHO = 26  # Echo on pin 26
-GPIO.setup(TRIGGER, GPIO.OUT)
+GPIO.setup(TRIGGER, GPIO.OUT)  # Trig is set as output
+GPIO.setup(ECHO, GPIO.IN)  # Echo is set as input
 
 
 def pir_motion_senor_and_led_with_buzzer():
@@ -53,40 +55,24 @@ def pir_motion_senor_and_led_with_buzzer():
 
 
 def ultrasonic_sensor_and_motor():
+    while True:
+        if GPIO.input(ECHO) == 0:
+            GPIO.output(TRIGGER, 0)  # Set to low
+            motorSpeed.stop()
+            # Stops motor when the sensor reads normal again
 
-    # PWM frequency is 100Hz
-    motorSpeed = GPIO.PWM(MOTORSPEED, 100)
-    # Start with a duty cycle of zero (it’s off)
-    motorSpeed.start(0)
-
-    # Trig is set as output
-    GPIO.output(TRIGGER, 0)  # Set to low
-
-    GPIO.setup(ECHO, GPIO.IN)
-    # Echo is set as input
-
-    time.sleep(0.1)
-    # time delay for the sensor to settle, needs at least 15ms
-
-    GPIO.output(TRIGGER, 1)
-    # Next three lines creates the 10µs pulse
-    time.sleep(0.00001)
-    GPIO.output(TRIGGER, 0)
-
-    while GPIO.input(ECHO) == 0:
-        # Stops motor when the sensor reads normal again
-        motorSpeed.stop()
-
-    while GPIO.input(ECHO) == 1:
-        # Change the speed when the hand is sensed.
-        # <speed> is any number between 1-100, 100 is the #fastest.
-        motorSpeed.ChangeDutyCycle(10)
+        elif GPIO.input(ECHO) == 1:
+            # <speed> is any number between 1-100, 100 is the fastest.
+            motorSpeed.start(25)  # Motor will run at slow speed
+            GPIO.output(TRIGGER, 1)  # Set to high
 
 
 if __name__ == '__main__':
     try:
-        pass
+        Thread(target=pir_motion_senor_and_led_with_buzzer).start()
+        Thread(target=ultrasonic_sensor_and_motor).start()
 
+    # trap a CTRL+C keyboard interrupt
     except KeyboardInterrupt:
         print("System Stopped")
-        GPIO.cleanup()
+        GPIO.cleanup()  # resets all GPIO ports used by this program
