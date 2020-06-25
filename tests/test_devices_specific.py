@@ -46,7 +46,7 @@ def test_devices_all_ids_get(client):
 
 
 # POST tests
-def test_device_id_put(client):
+def test_device_id_post(client):
     # Get test device ID
     test = "test"
 
@@ -61,7 +61,7 @@ def test_device_id_put(client):
         assert r.headers.get('Content-Type') == "text/html; charset=utf-8"
 
         # Check if right status code
-        assert r.status_code == 201
+        assert (r.status_code == 201)
 
     def test_device_id_post_incomplete_data(client, endpoint, test):
         # Send post request
@@ -160,7 +160,7 @@ def test_device_id_put(client):
 
     def test_device_id_put_complete_data(client, endpoint, test):
         # Send put request
-        r = client.put(endpoint, data={u'currentVolume': 1, u'total_detected': 1, u'total_dispensed': 1, u'total_ignores': 1})
+        r = client.put(endpoint, json={u'dispenses':[{u"time":"12:00", u"volume":1.2}], u'currentVolume': 5, u'total_detected': 3, u'total_dispensed': 2, u'total_ignores': 1})
 
         # Check response file type
         assert r.headers.get('Content-Type') == "text/html; charset=utf-8"
@@ -170,7 +170,7 @@ def test_device_id_put(client):
 
     def test_device_id_put_incomplete_data(client, endpoint, test):
         # Send put request
-        r = client.put(endpoint, data={u'currentVolume': 1, u'total_detected': 1, u'total_dispensed': 1})
+        r = client.put(endpoint, json={u'currentVolume': 5, u'total_detected': 3, u'total_dispensed': 2, u'total_ignores': 1})
 
         # Check response file type
         assert r.headers.get('Content-Type') == "text/html; charset=utf-8"
@@ -180,7 +180,7 @@ def test_device_id_put(client):
 
     def test_device_id_put_empty_data(client, endpoint, test):
         # Send put request
-        r = client.put(endpoint, data={})
+        r = client.put(endpoint, json={})
 
         # Check response file type
         assert r.headers.get('Content-Type') == "text/html; charset=utf-8"
@@ -193,7 +193,7 @@ def test_device_id_put(client):
         unauth_endpoint = "/api/wrongkey/devices?id={:}".format(test)
 
         # Send put request
-        r = client.put(unauth_endpoint, data={u'currentVolume': 1, u'total_detected': 1, u'total_dispensed': 1, u'total_ignores': 1})
+        r = client.put(unauth_endpoint, json={u'dispenses':[{u"time":"12:00", u"volume":1.2}], u'currentVolume': 5, u'total_detected': 3, u'total_dispensed': 2, u'total_ignores': 1})
 
         # Check response file type
         assert r.headers.get('Content-Type') == "text/html; charset=utf-8"
@@ -207,7 +207,7 @@ def test_device_id_put(client):
         unauth_endpoint = "/api/xfvl2OiOnd0bqhyWeUuABQ/devices?id={:}".format(test)
 
         # Send put request
-        r = client.put(endpoint, data={u'currentVolume': 1, u'total_detected': 1, u'total_dispensed': 1, u'total_ignores': 1})
+        r = client.put(endpoint, json={u'dispenses':[{u"time":"It works holy fuck!!!!", u"volume":1.2}], u'currentVolume': 5, u'total_detected': 3, u'total_dispensed': 2, u'total_ignores': 1})
 
         # Check response file type
         assert r.headers.get('Content-Type') == "text/html; charset=utf-8"
@@ -216,9 +216,9 @@ def test_device_id_put(client):
         assert r.status_code == 403
     '''
 
-    def test_device_id_does_not_exist(client, endpoint):
+    def test_device_id_does_not_exist(client):
         # Send put request
-        r = client.put(endpoint, data={u'currentVolume': 1, u'total_detected': 1, u'total_dispensed': 1, u'total_ignores': 1})
+        r = client.put("/api/3FJwnCg-fHhcwQP3c59u_w/devices?id=IDONTEXIST", json={u'dispenses':[{u"time":"12:00", u"volume":1.2}], u'currentVolume': 5, u'total_detected': 3, u'total_dispensed': 2, u'total_ignores': 1})
 
         # Check response file type
         assert r.headers.get('Content-Type') == "text/html; charset=utf-8"
@@ -230,27 +230,31 @@ def test_device_id_put(client):
         # Send put requests
 
         # Test currentVolume
-        r1 = client.put(endpoint, data={u'currentVolume': "should_be_int", u'total_detected': 1, u'total_dispensed': 1, u'total_ignores': 1})
+        r1 = client.put(endpoint, json={u'dispenses':[{u"time":"12:00", u"volume":1.2}], u'currentVolume': "should_be_int", u'total_detected': 1, u'total_dispensed': 1, u'total_ignores': 1})
         assert r1.status_code == 400 # Bad request
 
         # Test total_detected
-        r2 = client.put(endpoint, data={u'currentVolume': 1, u'total_detected': "should_be_int", u'total_dispensed': 1, u'total_ignores': 1})
-        assert r1.status_code == 400 # Bad request
+        r2 = client.put(endpoint, json={u'dispenses':[{u"time":"12:00", u"volume":1.2}], u'currentVolume': 1, u'total_detected': "should_be_int", u'total_dispensed': 1, u'total_ignores': 1})
+        assert r2.status_code == 400 # Bad request
 
         # Test total_dispensed
-        r3 = client.put(endpoint, data={u'currentVolume': 1, u'total_detected': 1, u'total_dispensed': "should_be_int", u'total_ignores': 1})
-        assert r1.status_code == 400 # Bad request
+        r3 = client.put(endpoint, json={u'dispenses':[{u"time":"12:00", u"volume":1.2}], u'currentVolume': 1, u'total_detected': 1, u'total_dispensed': "should_be_int", u'total_ignores': 1})
+        assert r3.status_code == 400 # Bad request
 
         # Test total_ignores
-        r4 = client.put(endpoint, data={u'currentVolume': 1, u'total_detected': 1, u'total_dispensed': 1, u'total_ignores': "should_be_int"})
-        assert r1.status_code == 400 # Bad request
+        r4 = client.put(endpoint, json={u'dispenses':[{u"time":"12:00", u"volume":1.2}], u'currentVolume': 1, u'total_detected': 1, u'total_dispensed': 1, u'total_ignores': "should_be_int"})
+        assert r4.status_code == 400 # Bad request
 
+        # Test dispenses
+        r5 = client.put(endpoint, json={u'dispenses':"I should be a list", u'currentVolume': 1, u'total_detected': 1, u'total_dispensed': 1, u'total_ignores': "should_be_int"})
+        assert r5.status_code == 400 # Bad request
 
         # Check responses file types
         assert r1.headers.get('Content-Type') == "text/html; charset=utf-8"
         assert r2.headers.get('Content-Type') == "text/html; charset=utf-8"
         assert r3.headers.get('Content-Type') == "text/html; charset=utf-8"
         assert r4.headers.get('Content-Type') == "text/html; charset=utf-8"
+        assert r5.headers.get('Content-Type') == "text/html; charset=utf-8"
 
     # Call tests
     test_device_id_put_empty_data(client, endpoint, test)
@@ -308,7 +312,7 @@ def test_device_id_delete(client):
 
     def test_del_non_existent_id(client, endpoint, test):
         # Send delete request
-        r = client.delete(endpoint)
+        r = client.delete("/api/3FJwnCg-fHhcwQP3c59u_w/devices?id=IDONTEXIST")
 
         # Check response file type
         assert r.headers.get('Content-Type') == "text/html; charset=utf-8"
