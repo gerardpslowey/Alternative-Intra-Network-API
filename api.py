@@ -328,9 +328,24 @@ def create_app():
             assert isinstance(str(device_id), str)
             
             # Get data sent in JSON request body
-            data = request.form
+            data = request.json
+            print(data)
 
             # Assertion statements to show data is formatted correctly
+            assert u'dispenses' in data
+            assert isinstance(list(data[u'dispenses']), list)
+
+            # assert that each dispense is properly formatted
+            for dispense in data[u'dispenses']:
+                print(dispense)
+                # time
+                assert 'time' in dispense
+
+                # dispensed volume
+                assert 'volume' in dispense
+
+                # assert only time and volume in dispense
+                assert len(dispense) == 2
 
             assert u'currentVolume' in data
             assert isinstance(int(data[u'currentVolume']), int)
@@ -346,13 +361,12 @@ def create_app():
 
             # Extract data
             data = {
+            u'dispenses': list(data[u'dispenses']),
             u'currentVolume': float(data[u'currentVolume']),
             u'total_detected': int(data[u'total_detected']),
             u'total_dispensed': int(data[u'total_dispensed']),
             u'total_ignores': int(data[u'total_ignores'])
             }
-
-            assert len(data.keys()) == 4
 
         except AssertionError:
             return Response("<h3>ERROR: Bad Request: The request sent was malformed and did not contain possibly of the wrong type</h3>", 400, mimetype="text/html")
@@ -364,6 +378,7 @@ def create_app():
             return Response(
             "<h3>ERROR: Bad Request: This URL does not accept the HTTP request sent. Please consult the API documentation</h3>", 400,
             mimetype="text/html")
+        
 
         # Get the deviceID from the JSON body sent
         device = devices_ref.document(device_id).get()
@@ -373,9 +388,10 @@ def create_app():
         todays_log = device_ref_logs.document(todays_date)
         get_log = todays_log.get()
 
+        # if device is on system and log files already recorded
         if device_id and device.exists and get_log.exists:
             # Atomically add a new dispense to the 'dispenses' array field.
-            todays_log.update({u'dispenses': firestore.ArrayUnion([data])})
+            todays_log.update({u'dispenses': firestore.ArrayUnion(data[u'dispenses'])})
 
             # Delays are needed to separate firestore operation
             time.sleep(0.1)
@@ -386,8 +402,15 @@ def create_app():
             }, merge=True)
             time.sleep(0.1)
 
-            # Increase total_dispensed value
-            todays_log.update({"total_dispensed": firestore.Increment(1)})
+            # Increase values
+            todays_log.update({"total_dispensed": firestore.Increment(data[u'total_dispensed'])})
+            time.sleep(0.1)
+
+            todays_log.update({"total_detected": firestore.Increment(data[u'total_detected'])})
+            time.sleep(0.1)
+
+            todays_log.update({"total_ignores": firestore.Increment(data[u'total_ignores'])})
+            time.sleep(0.1)
 
             return Response("<h3>Log file successfully updated</h3>", 200, mimetype="text/html")
 
