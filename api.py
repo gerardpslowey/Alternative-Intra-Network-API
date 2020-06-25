@@ -44,13 +44,20 @@ def create_app():
 
     def verify_password(password, admin_only=False):
         # Check if admin only
-        if not admin_only:
+        if admin_only:
+            return check_password_hash(admin, password)
+
+        # Generic user
+        else:
             for key in users:
                 # check every hash
                 if check_password_hash(key, password):
                     return True
 
-        return check_password_hash(admin, password)
+            if check_password_hash(admin, password):
+                return True
+
+        return False
 
     ###########################################################
     ####### Routing Handling ##################################
@@ -89,6 +96,7 @@ def create_app():
 
         # check api_key
         general_admission = verify_password(key)
+        admin = verify_password(key, admin_only=True)
 
         if request.method == "GET":
             if general_admission:
@@ -98,7 +106,7 @@ def create_app():
                 return Response("<h3>ERROR: This URL content is forbidden to this user</h3>", 403, mimetype="text/html")
 
         # if api key is admin
-        elif verify_password(key, admin_only=True):
+        elif admin:
             if request.method == "POST":
                 # add new device
                 return add_new_device()
@@ -112,8 +120,8 @@ def create_app():
                 # Check device id is properly formatted
                 try:
                     # Extract device id
-                    data = request.form
-                    device_id = data['deviceID']
+                    data = request.args
+                    device_id = data.get('id')
 
                     # Assert it's a string
                     assert isinstance(device_id, str)
@@ -131,8 +139,8 @@ def create_app():
 
                 return remove_device_collection(devices_ref.document(device_id), 10)
 
-            else: # User only has access to get requests
-                return Response("<h3>ERROR: This URL content is forbidden to this user</h3>", 403, mimetype="text/html")
+        elif general_admission: # User only has access to get requests
+            return Response("<h3>ERROR: This URL content is forbidden to this user</h3>", 403, mimetype="text/html")
 
         # If neither conditions have been hit then return unauthorized 
         return Response(
@@ -150,13 +158,9 @@ def create_app():
         if admission and request.method == "GET":
             return access_all_devices_list()
 
-        #elif not admission:  # None returned from error
         return Response(
                 "<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>",
                 401, mimetype="text/html")
-
-        # Return 404 handler
-        # return page_not_found(e=FileNotFoundError)
 
 
     # Log file report
@@ -249,14 +253,18 @@ def create_app():
         device_info = {}
 
         try:
+            # Get URL parameters
+            query_parameters = request.args
+
+            # Check if ID was passed to URL query
+            device_id = query_parameters.get('id')
+
+            assert isinstance(str(device_id), str)
+
             # Get data sent
             device_info = request.form
 
             # Extract the device details from the endpoint request and check formatting with assertions
-            assert u'deviceID' in device_info
-            assert isinstance(str(device_info[u'deviceID']), str)
-            device_id = device_info['deviceID']
-
             assert u'deviceName' in device_info
             assert isinstance(str(device_info[u'deviceName']), str)
             deviceName = device_info['deviceName']
@@ -311,11 +319,16 @@ def create_app():
         device_id = None   
 
         try:
-            data = request.form
+            # Get URL parameters
+            query_parameters = request.args
 
-            # Get the deviceID from the JSON body sent
-            assert u'deviceID' in data
-            device_id = data[u'deviceID']
+            # Check if ID was passed to URL query
+            device_id = query_parameters.get('id')
+
+            assert isinstance(str(device_id), str)
+            
+            # Get data sent in JSON request body
+            data = request.form
 
             # Assertion statements to show data is formatted correctly
 
@@ -376,7 +389,7 @@ def create_app():
             # Increase total_dispensed value
             todays_log.update({"total_dispensed": firestore.Increment(1)})
 
-            return Response("<h3>Log file successfully updated</h3>", 201, mimetype="text/html")
+            return Response("<h3>Log file successfully updated</h3>", 200, mimetype="text/html")
 
         elif device_id and device.exists and not get_log.exists:
             # Create the log and update
