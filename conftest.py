@@ -1,4 +1,5 @@
 import pytest
+import requests
 from api import create_app
 
 # Give each test the same app to test
@@ -15,4 +16,9 @@ def app():
 # Tests use this client to make requets instead of starting the server
 @pytest.fixture
 def client(app):
+    # Make test device here
     return app.test_client()
+
+def test_device_id(client, app):
+    client.post("/api/3FJwnCg-fHhcwQP3c59u_w/devices?id=test", data={"deviceName":"test", "gatewayController":"192.168.0.132", "volumeAvailable":10})
+    return "test_device_id"
