@@ -1,7 +1,6 @@
 # Program to produce a report and data analysis of the devices usage statistics
 
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 import json
 import math
 import numpy as np
@@ -9,11 +8,11 @@ import os
 
 global log_database
 
+
 def produce_graphs(devices, log_database):
-    # Assume log_database is a loaded dictionary which maps device IDs to a list of formatted dictionaries
-    # Assume devices is a list of all alphanumerical device IDs on record
-    # for every log file associated with a device, extract no. dispensed, no. ignores dispensed and no. detected for a given
-    # Structure:
+    # Assume log_database is a loaded dictionary which maps device IDs to a list of formatted dictionaries Assume
+    # devices is a list of all alphanumerical device IDs on record for every log file associated with a device,
+    # extract no. dispensed, no. ignores dispensed and no. detected for a given Structure:
     """
     {
         'dispenses': [{'time': '14:51:18', 'volume': 1.2}, {'time': '14:51:28', 'volume': 1.2}, {'time': '14:52:00', 'volume': 1.2}, {'time': '14:52:08', 'volume': 1.2}],
@@ -28,16 +27,16 @@ def produce_graphs(devices, log_database):
     total_data = {}
 
     # change working directory so that graphs are saved in the a single folder
-    cur_dir = os.getcwd() # current working directory
+    cur_dir = os.getcwd()  # current working directory
 
     # must be in static folder so flask can find graphs
-    graph_dir = os.path.join(cur_dir, "static") # path to graph folder
+    graph_dir = os.path.join(cur_dir, "static")  # path to graph folder
 
     # if path doesn't exist, make it
     if not os.path.exists(graph_dir):
         os.mkdir(graph_dir)
 
-    os.chdir(graph_dir) # change current working directory to this directory
+    os.chdir(graph_dir)  # change current working directory to this directory
 
     # names of the graphs which get created
     names = []
@@ -56,7 +55,7 @@ def produce_graphs(devices, log_database):
             # extract date, which is in the form year month day e.g. 202011 is 1/1/2020
             date_obj = log[u"Last Updated"]
             date = str(date_obj.year) + str(date_obj.month) + str(date_obj.day)
-            
+
             # if day has changed
             if date not in device_data:
                 # record new info for that day
@@ -70,11 +69,10 @@ def produce_graphs(devices, log_database):
                 device_data[date][0] += log[u"total_detected"]
                 device_data[date][1] += log[u"total_dispensed"]
                 device_data[date][2] += log[u"total_ignores"]
-        
+
         # sort dates list
         results = sorted(device_data.items(), key=sorter)
 
-        
         # extract data
         dates = []
         total_detected = []
@@ -89,14 +87,9 @@ def produce_graphs(devices, log_database):
 
             # format date to string
             key = str(key)
-            date = [key[6:], key[4:6], key[:4]]
+            date = [key[5:], key[4:5], key[:4]]
             dates.append("/".join(date))
 
-        #print(results)
-        #print(total_detected)
-        #print(total_dispensed)
-        #print(total_ignores)
-        
         # produce graphs
         fig, ax = plt.subplots()
 
@@ -104,7 +97,7 @@ def produce_graphs(devices, log_database):
         ax.plot(dates, total_detected, label="Total Detected")
         ax.plot(dates, total_dispensed, label="Total dispensed")
         ax.plot(dates, total_ignores, label="Total ignores")
-        
+
         # Label axes
         ax.set_xlabel("Date")
         ax.set_ylabel("No. dispensed")
@@ -123,13 +116,15 @@ def produce_graphs(devices, log_database):
 
         # add graph name
         names.append(name)
-        
+
         # Save average data so it can be used in the total graph
-        total_data[str(device)] = [sum(total_detected)//len(total_detected), sum(total_dispensed)//len(total_dispensed), sum(total_ignores)//len(total_ignores)]
+        total_data[str(device)] = [sum(total_detected) // len(total_detected),
+                                   sum(total_dispensed) // len(total_dispensed),
+                                   sum(total_ignores) // len(total_ignores)]
 
     # produce bar chart to show total data
     fig, ax = plt.subplots()
-    
+
     # width of bars in chart
     width = 0.3
 
@@ -154,7 +149,7 @@ def produce_graphs(devices, log_database):
 
         # get device id associated with stats
         sorted_devices.append(str(key))
-    
+
     # Plot grouped bar chart
     ax.bar(x - width, total_detected_means, width, label='Detected Mean')
     ax.bar(x, total_dispensed_means, width, label='Dispened Mean')
@@ -190,7 +185,8 @@ def produce_graphs(devices, log_database):
 
 
 def sorter(t):
-    return t[0]        
+    return t[0]
+
 
 def produce_report(devices, log_database, graph_names):
     # Assume log_database is a loaded dictionary which maps device IDs to a list of formatted dictionaries
@@ -214,7 +210,7 @@ def produce_report(devices, log_database, graph_names):
     cur_dir = os.getcwd()
 
     # must be in templates folder so flask can find html file
-    page_dir = os.path.join(cur_dir, "templates") # path to template website
+    page_dir = os.path.join(cur_dir, "templates")  # path to template website
 
     # if path doesn't exist, make it
     if not os.path.exists(page_dir):
@@ -264,6 +260,7 @@ def run(devices, log_database):
     # return name of template for Flask
     return "report.html"
 
+
 if __name__ == '__main__':
     # Access files, produce graphs and a report on the matter
     # Data to report on:
@@ -289,8 +286,8 @@ if __name__ == '__main__':
 
     try:
         with open("log_database.json") as f:
-            log_database = json.load(f) # load devices.json as a dict
-            
+            log_database = json.load(f)  # load devices.json as a dict
+
     except:
         print("Unable to load file log_database.json")
 

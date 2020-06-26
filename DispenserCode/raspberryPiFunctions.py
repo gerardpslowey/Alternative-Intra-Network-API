@@ -1,39 +1,41 @@
 # Need to save the values taken from these sensors to log.JSON
 # Should be in the form:
 '''
-{ 
-    "currentVolume": 0, 
+{
+    "currentVolume": 0,
     "dispenses": [
       {
-        "time": "14:51:18", 
+        "time": "14:51:18",
         "volume": 1.2
-      }, 
+      },
       {
-        "time": "14:51:28", 
+        "time": "14:51:28",
         "volume": 1.2
-      }, 
+      },
       {
-        "time": "14:52:00", 
+        "time": "14:52:00",
         "volume": 1.2
-      }, 
+      },
       {
-        "time": "14:52:08", 
+        "time": "14:52:08",
         "volume": 1.2
       }
-    ], 
-    "total_detected": 5, 
-    "total_dispensed": 4, 
+    ],
+    "total_detected": 5,
+    "total_dispensed": 4,
     "total_ignores": 1
 }
 '''
 
+import json
+
 import RPi.GPIO as GPIO
 import time
-import sys
 from threading import Thread
+from datetime import date, datetime
 
 GPIO.setwarnings(False)
-# Use BOARD mode to address numbers
+# Use BOARD mode to address pin numbers
 GPIO.setmode(GPIO.BOARD)
 
 ##############################################
@@ -64,6 +66,9 @@ ECHO = 26  # Echo on pin 26
 GPIO.setup(TRIGGER, GPIO.OUT)  # Trig is set as output
 GPIO.setup(ECHO, GPIO.IN)  # Echo is set as input
 
+today = str(date.today().strftime("%d-%m-%Y"))
+todays_log = today + "Log"
+
 
 def pir_motion_senor_and_led_with_buzzer():
     while True:
@@ -87,12 +92,18 @@ def pir_motion_senor_and_led_with_buzzer():
             time.sleep(1)
             GPIO.output(BUZZER, GPIO.HIGH)  # Turn the buzzer off
 
+            update_json_parameters(["total_detected", "total_ignores"])
+
 
 def ultrasonic_sensor_and_motor():
     while True:
         # At start of each listen
         GPIO.output(TRIGGER, 0)  # Set to low
         time.sleep(0.1)
+
+        # Place holders for timing data
+        start = 0
+        stop = 0
 
         GPIO.output(TRIGGER, 1)  # Send pulse to the sensor,
         time.sleep(0.00001)  # Sensor should return sonic burst
@@ -105,7 +116,7 @@ def ultrasonic_sensor_and_motor():
         while GPIO.input(ECHO) == 1:
             pass
             stop = time.time()
-            total_time = stop-start
+            total_time = stop - start
 
             # Stop - Start * half the distance of sound
             distance = total_time * 170
@@ -117,7 +128,70 @@ def ultrasonic_sensor_and_motor():
                 time.sleep(0.9)  # Run motor for 0.9 seconds to dispense 1.2ml through 3ml tube
                 motorSpeed.stop()  # Stops motor when the sensor reads normal again
 
+                # Record the dispense in the usage log
+                write_to_usage_json()
+                # Prevent update collisions
+                time.sleep(1)
+                # Update the dispensed counter
+                update_json_parameters("total_dispensed")
 
+
+######################################################
+########## Functions to update device logs ###########
+######################################################
+
+# function to add to JSON
+def write_to_usage_json(data, filename='log.json'):
+    current_time = str(datetime.now().strftime('%H:%M:%S'))
+
+    with open(filename, 'w') as f:
+        json.dump(data, f, indent=4)
+
+    with open(filename) as json_file:
+        data = json.load(json_file)
+
+        temp = data['dispenses']
+
+        # python object to be appended to dispenses array
+        d = {"time": current_time,
+             "volume": "1.2ml"
+             }
+
+        # appending data to temp_details
+        temp.append(d)
+
+    write_to_usage_json(data)
+
+
+def update_json_parameters(*parameters, filename='log.json'):
+    try:
+        # Open in reading and writing mode
+        with open(filename, "r+") as device_log:
+            log = json.load(device_log)
+
+            # Increment the parameters
+            for parameter in parameters:
+                if parameter == "total_detected":
+                    log[parameter] += 1
+                elif parameter == "total_dispensed":
+                    log[parameter] = len(log['dispenses'])
+                elif parameter == "total_ignores":
+                    log[parameter] = int(log['total_detected']) - int(log['total_dispensed'])
+
+        # Dump the changes back to the json file
+        with open(filename, "w") as device_log:
+            json.dump(log, device_log)
+
+    except Exception as e:
+        print("Error: {}".format(e))
+
+
+# Code that would get executed to get data from weight cell
+# Available at https://github.com/tatobari/hx711py
+# To execute properly a reference unit calculation is needed
+# This is explained in the relevant part of the electronics documentation
+
+'''
 def weight_cell_get_weight():
 
     EMULATE_HX711 = False
@@ -126,9 +200,9 @@ def weight_cell_get_weight():
 
     if not EMULATE_HX711:
         import RPi.GPIO as GPIO
-        from hx711_files.hx711 import HX711
+        from HX711.hx711 import HX711
     else:
-        from hx711_files.emulated_hx711 import HX711
+        from HX711.hx711 import HX711
 
     def cleanAndExit():
         print("Cleaning...")
@@ -172,9 +246,9 @@ def weight_cell_get_weight():
 
     while True:
         try:
-            # These three lines are usefull to debug wether to use MSB or LSB in the reading formats
-            # for the first parameter of "hx.set_reading_format("LSB", "MSB")".
-            # Comment the two lines "val = hx.get_weight(5)" and "print val" and uncomment these three lines to see what it prints.
+            # These three lines are usefull to debug wether to use MSB or LSB in the reading formats for the first
+            # parameter of "hx.set_reading_format("LSB", "MSB")". Comment the two lines "val = hx.get_weight(5)" and
+            # "print val" and uncomment these three lines to see what it prints.
 
             # np_arr8_string = hx.get_np_arr8_string()
             # binary_string = hx.get_binary_string()
@@ -196,10 +270,11 @@ def weight_cell_get_weight():
 
         except (KeyboardInterrupt, SystemExit):
             cleanAndExit()
-
+'''
 
 if __name__ == '__main__':
     try:
+        # Run the sensor monitoring software in seperate threads concurrently
         Thread(target=pir_motion_senor_and_led_with_buzzer).start()
         Thread(target=ultrasonic_sensor_and_motor).start()
 

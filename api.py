@@ -102,8 +102,8 @@ def create_app():
             if general_admission:
                 return access_specific_device_list()
 
-            else: # User only has access to get requests
-                return Response("<h3>ERROR: This URL content is forbidden to this user</h3>", 403, mimetype="text/html")
+            else:  # User only has access to get requests
+                return Response("<h3>ERROR: Access to this URL content is forbidden to this user</h3>", 403, mimetype="text/html")
 
         # if api key is admin
         elif admin:
@@ -127,26 +127,31 @@ def create_app():
                     assert isinstance(device_id, str)
 
                 except AssertionError:
-                    return Response("<h3>ERROR: Bad Request: The request sent was malformed and did not contain possibly of the wrong type</h3>", 400, mimetype="text/html")
+                    return Response(
+                        "<h3>ERROR: Bad Request: The request sent was malformed and did not contain possibly of the wrong type</h3>",
+                        400, mimetype="text/html")
 
                 except KeyError:
-                    return Response("<h3>ERROR: Bad Request: The request sent was empty or is missing parameters</h3>", 400, mimetype="text/html")
+                    return Response(
+                        "<h3>ERROR: Bad Request: The request sent was empty or is missing parameters</h3>",
+                        400, mimetype="text/html")
 
                 except:
                     return Response(
-                    "<h3>ERROR: Bad Request: This URL does not accept the HTTP request sent. Please consult the API documentation</h3>", 400,
-                    mimetype="text/html")
+                        "<h3>ERROR: Bad Request: This URL does not accept the HTTP request sent. Please consult the API documentation</h3>",
+                        400, mimetype="text/html")
 
                 return remove_device_collection(devices_ref.document(device_id), 10)
 
-        elif general_admission: # User only has access to get requests
-            return Response("<h3>ERROR: This URL content is forbidden to this user</h3>", 403, mimetype="text/html")
+        elif general_admission:  # User only has access to get requests
+            return Response(
+                "<h3>ERROR: This URL content is forbidden to this user</h3>",
+                403, mimetype="text/html")
 
         # If neither conditions have been hit then return unauthorized 
         return Response(
             "<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>",
             401, mimetype="text/html")
-
 
     # routing a call to path "/devices" to this method
     @app.route("/api/<key>/devices/all", methods=["GET"])
@@ -159,9 +164,8 @@ def create_app():
             return access_all_devices_list()
 
         return Response(
-                "<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>",
-                401, mimetype="text/html")
-
+            "<h3>ERROR: An invalid API Key has been entered: Consult Network Admin if this error persists</h3>",
+            401, mimetype="text/html")
 
     # Log file report
     @app.route("/api/<key>/report", methods=["GET"])
@@ -177,7 +181,6 @@ def create_app():
 
         # get device list
         all_devices_info = [doc.to_dict() for doc in devices_ref.stream()]
-        # device_dict = jsonify(all_devices_info)
 
         # extract log files
         log_dict = {}
@@ -243,11 +246,14 @@ def create_app():
             return logs_d
 
         elif device_id and not device.exists:
-            return Response("<h3>ERROR: Device does not exist</h3>", 404, mimetype="text/html")
+            return Response(
+                "<h3>ERROR: Device does not exist</h3>",
+                404, mimetype="text/html")
 
         else:
-            return Response("<h3>ERROR: No device id provided. Please specify an id or consult docs</h3>", 405,
-                            mimetype="text/html")
+            return Response(
+                "<h3>ERROR: No device id provided. Please specify an id or consult docs</h3>",
+                405, mimetype="text/html")
 
     def add_new_device():
         device_info = {}
@@ -278,22 +284,23 @@ def create_app():
             volumeAvailable = device_info['volumeAvailable']
 
         except AssertionError:
-            return Response("<h3>ERROR: Bad Request: The request sent was malformed and did not contain possibly of the wrong type</h3>", 400, mimetype="text/html")
+            return Response(
+                "<h3>ERROR: Bad Request: The request sent was malformed and did not contain possibly of the wrong type</h3>",
+                400, mimetype="text/html")
 
         except KeyError:
-            return Response("<h3>ERROR: Bad Request: The request sent was empty or is missing parameters</h3>", 400, mimetype="text/html")
+            return Response(
+                "<h3>ERROR: Bad Request: The request sent was empty or is missing parameters</h3>",
+                400, mimetype="text/html")
 
         except:
             return Response(
-            "<h3>ERROR: Bad Request: This URL does not accept the HTTP request sent. Please consult the API documentation</h3>", 400,
-            mimetype="text/html")
+                "<h3>ERROR: Bad Request: This URL does not accept the HTTP request sent. Please consult the API documentation</h3>",
+                400, mimetype="text/html")
 
         # Check if the device already exists
         device_ref = devices_ref.document(device_id)
         device = device_ref.get()
-
-        device_ref_logs = devices_ref.document(device_id).collection(u'logs')
-        todays_log = device_ref_logs.document(todays_date)
 
         # Return an error message if it already is in the list
         if device.exists:
@@ -311,12 +318,11 @@ def create_app():
     def update_usage_log_file():
         # Get today's date and time
         todays_date = str(date.today().strftime("%d-%m-%Y"))
-        current_time = str(datetime.now().strftime('%H:%M:%S'))
 
         # Get data from request
-        data =  {}
-
-        device_id = None   
+        data = {}
+        # Default device ID
+        device_id = None
 
         try:
             # Get URL parameters
@@ -326,10 +332,10 @@ def create_app():
             device_id = query_parameters.get('id')
 
             assert isinstance(str(device_id), str)
-            
+
             # Get data sent in JSON request body
             data = request.json
-            print(data)
+            # print(data)
 
             # Assertion statements to show data is formatted correctly
             assert u'dispenses' in data
@@ -337,7 +343,7 @@ def create_app():
 
             # assert that each dispense is properly formatted
             for dispense in data[u'dispenses']:
-                print(dispense)
+                # print(dispense)
                 # time
                 assert 'time' in dispense
 
@@ -361,24 +367,27 @@ def create_app():
 
             # Extract data
             data = {
-            u'dispenses': list(data[u'dispenses']),
-            u'currentVolume': float(data[u'currentVolume']),
-            u'total_detected': int(data[u'total_detected']),
-            u'total_dispensed': int(data[u'total_dispensed']),
-            u'total_ignores': int(data[u'total_ignores'])
+                u'dispenses': list(data[u'dispenses']),
+                u'currentVolume': float(data[u'currentVolume']),
+                u'total_detected': int(data[u'total_detected']),
+                u'total_dispensed': int(data[u'total_dispensed']),
+                u'total_ignores': int(data[u'total_ignores'])
             }
 
         except AssertionError:
-            return Response("<h3>ERROR: Bad Request: The request sent was malformed and did not contain possibly of the wrong type</h3>", 400, mimetype="text/html")
+            return Response(
+                "<h3>ERROR: Bad Request: The request sent was malformed and did not contain possibly of the wrong type</h3>",
+                400, mimetype="text/html")
 
         except KeyError:
-            return Response("<h3>ERROR: Bad Request: The request sent was empty or is missing parameters</h3>", 400, mimetype="text/html")
+            return Response("<h3>ERROR: Bad Request: The request sent was empty or is missing parameters</h3>", 400,
+                            mimetype="text/html")
 
         except:
             return Response(
-            "<h3>ERROR: Bad Request: This URL does not accept the HTTP request sent. Please consult the API documentation</h3>", 400,
-            mimetype="text/html")
-        
+                "<h3>ERROR: Bad Request: This URL does not accept the HTTP request sent. Please consult the API documentation</h3>",
+                400,
+                mimetype="text/html")
 
         # Get the deviceID from the JSON body sent
         device = devices_ref.document(device_id).get()
@@ -388,10 +397,12 @@ def create_app():
         todays_log = device_ref_logs.document(todays_date)
         get_log = todays_log.get()
 
-        # if device is on system and log files already recorded
+        # if device id is provided and device is on system and log files already recorded
         if device_id and device.exists and get_log.exists:
-            # Atomically add a new dispense to the 'dispenses' array field.
-            todays_log.update({u'dispenses': firestore.ArrayUnion(data[u'dispenses'])})
+            # Update the dispenses array
+            todays_log.set({
+                u'dispenses': data[u'dispenses']
+            })
 
             # Delays are needed to separate firestore operation
             time.sleep(0.1)
@@ -402,15 +413,13 @@ def create_app():
             }, merge=True)
             time.sleep(0.1)
 
-            # Increase values
-            todays_log.update({"total_dispensed": firestore.Increment(data[u'total_dispensed'])})
-            time.sleep(0.1)
-
-            todays_log.update({"total_detected": firestore.Increment(data[u'total_detected'])})
-            time.sleep(0.1)
-
-            todays_log.update({"total_ignores": firestore.Increment(data[u'total_ignores'])})
-            time.sleep(0.1)
+            # Update the counter values
+            todays_log.set({
+                u'currentVolume': data[u'currentVolume'],
+                u'total_detected': data[u'total_detected'],
+                u'total_dispensed': data[u'total_dispensed'],
+                u'total_ignores': data[u'total_ignores']
+            }, merge=True)
 
             return Response("<h3>Log file successfully updated</h3>", 200, mimetype="text/html")
 
@@ -420,10 +429,10 @@ def create_app():
                 u'dispenses': [
 
                 ],
-                u'currentVolume': 0,
-                u'total_detected': 0,
-                u'total_dispensed': 0,
-                u'total_ignores': 0
+                u'currentVolume': data[u'currentVolume'],
+                u'total_detected': data[u'total_detected'],
+                u'total_dispensed': data[u'total_dispensed'],
+                u'total_ignores': data[u'total_ignores']
             })
 
             # Call function again now that log file has been set
@@ -435,13 +444,13 @@ def create_app():
             return Response("<h3>ERROR: Device does not exist</h3>", 404, mimetype="text/html")
 
         elif not device_id:
-            return Response("<h3>ERROR: No device id provided. Please specify an id or consult docs</h3>", 405,
-                            mimetype="text/html")
+            return Response("<h3>ERROR: No device id provided. Please specify an id or consult docs</h3>",
+                            405, mimetype="text/html")
 
         return Response(
-            "<h3>ERROR: Bad Request: This URL does not accept the HTTP request sent. Please consult the API documentation</h3>", 400,
+            "<h3>ERROR: Bad Request: This URL does not accept the HTTP request sent. Please consult the API documentation</h3>",
+            400,
             mimetype="text/html")
-
 
     def remove_device_collection(doc_ref, batch_size):
         col_ref = doc_ref.collection('logs')
@@ -455,7 +464,7 @@ def create_app():
         if device.exists:
             # Start by deleting logs
             for doc in docs:
-                print(f'Deleting doc {doc.id} => {doc.to_dict()}')
+                # print(f'Deleting doc {doc.id} => {doc.to_dict()}')
                 doc.reference.delete()
                 deleted = deleted + 1
 

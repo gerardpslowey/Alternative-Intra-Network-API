@@ -1,5 +1,6 @@
 # Test devices?id endpoint
 
+
 # GET testing
 def test_devices_all_ids_get(client):
     # Request JSON device list 
@@ -55,7 +56,8 @@ def test_device_id_post(client):
 
     def test_device_id_post_complete_data(client, endpoint, test):
         # Send post request
-        r = client.post(endpoint, data={"deviceName":"test", "gatewayController":"192.168.0.132", "volumeAvailable":10})
+        r = client.post(endpoint,
+                        data={"deviceName": "test", "gatewayController": "192.168.0.132", "volumeAvailable": 10})
 
         # Check response file type
         assert r.headers.get('Content-Type') == "text/html; charset=utf-8"
@@ -65,7 +67,7 @@ def test_device_id_post(client):
 
     def test_device_id_post_incomplete_data(client, endpoint, test):
         # Send post request
-        r = client.post(endpoint, data={"deviceName":"test", "gatewayController":"192.168.0.132"})
+        r = client.post(endpoint, data={"deviceName": "test", "gatewayController": "192.168.0.132"})
 
         # Check response file type
         assert r.headers.get('Content-Type') == "text/html; charset=utf-8"
@@ -88,7 +90,8 @@ def test_device_id_post(client):
         unauth_endpoint = "/api/wrongkey/devices?id={:}".format(test)
 
         # Send post request
-        r = client.post(unauth_endpoint, data={"deviceName":"test", "gatewayController":"192.168.0.132", "volumeAvailable":10})
+        r = client.post(unauth_endpoint,
+                        data={"deviceName": "test", "gatewayController": "192.168.0.132", "volumeAvailable": 10})
 
         # Check response file type
         assert r.headers.get('Content-Type') == "text/html; charset=utf-8"
@@ -113,7 +116,8 @@ def test_device_id_post(client):
 
     def test_device_id_already_exists(client, endpoint):
         # Send post request
-        r = client.post(endpoint, data={"deviceName":"test", "gatewayController":"192.168.0.132", "volumeAvailable":10})
+        r = client.post(endpoint,
+                        data={"deviceName": "test", "gatewayController": "192.168.0.132", "volumeAvailable": 10})
 
         # Check response file type
         assert r.headers.get('Content-Type') == "text/html; charset=utf-8"
@@ -125,16 +129,19 @@ def test_device_id_post(client):
         # Send post requests
 
         # Test currentVolume
-        r1 = client.post(endpoint, data={"deviceName":"test", "gatewayController":"192.168.0.132", "volumeAvailable":"should_be_int"})
-        assert r1.status_code == 400 # Bad request
+        r1 = client.post(endpoint, data={"deviceName": "test", "gatewayController": "192.168.0.132",
+                                         "volumeAvailable": "should_be_int"})
+        assert r1.status_code == 400  # Bad request
 
         # Test total_detected
-        r2 = client.post(endpoint, data={"deviceName":"test", "gatewayController":["should_be_string"], "volumeAvailable":10})
-        assert r1.status_code == 400 # Bad request
+        r2 = client.post(endpoint,
+                         data={"deviceName": "test", "gatewayController": ["should_be_string"], "volumeAvailable": 10})
+        assert r1.status_code == 400  # Bad request
 
         # Test total_dispensed
-        r3 = client.post(endpoint, data={"deviceName":["should_be_string"], "gatewayController":"192.168.0.132", "volumeAvailable":10})
-        assert r1.status_code == 400 # Bad request
+        r3 = client.post(endpoint, data={"deviceName": ["should_be_string"], "gatewayController": "192.168.0.132",
+                                         "volumeAvailable": 10})
+        assert r1.status_code == 400  # Bad request
 
         # Check responses file types
         assert r1.headers.get('Content-Type') == "text/html; charset=utf-8"
@@ -146,7 +153,7 @@ def test_device_id_post(client):
     test_device_id_post_incomplete_data(client, endpoint, test)
     test_device_id_post_complete_data(client, endpoint, test)
     test_device_id_post_unauthorised(client, test)
-    #test_device_id_post_unaethenticated(client, test)
+    # test_device_id_post_unaethenticated(client, test)
     test_device_id_wrong_data_type_post(client, endpoint)
 
 
@@ -160,7 +167,8 @@ def test_device_id_put(client):
 
     def test_device_id_put_complete_data(client, endpoint, test):
         # Send put request
-        r = client.put(endpoint, json={u'dispenses':[{u"time":"12:00", u"volume":1.2}], u'currentVolume': 5, u'total_detected': 3, u'total_dispensed': 2, u'total_ignores': 1})
+        r = client.put(endpoint, json={u'dispenses': [{u"time": "12:00", u"volume": 1.2}], u'currentVolume': 5,
+                                       u'total_detected': 3, u'total_dispensed': 2, u'total_ignores': 1})
 
         # Check response file type
         assert r.headers.get('Content-Type') == "text/html; charset=utf-8"
@@ -170,7 +178,8 @@ def test_device_id_put(client):
 
     def test_device_id_put_incomplete_data(client, endpoint, test):
         # Send put request
-        r = client.put(endpoint, json={u'currentVolume': 5, u'total_detected': 3, u'total_dispensed': 2, u'total_ignores': 1})
+        r = client.put(endpoint,
+                       json={u'currentVolume': 5, u'total_detected': 3, u'total_dispensed': 2, u'total_ignores': 1})
 
         # Check response file type
         assert r.headers.get('Content-Type') == "text/html; charset=utf-8"
@@ -193,7 +202,8 @@ def test_device_id_put(client):
         unauth_endpoint = "/api/wrongkey/devices?id={:}".format(test)
 
         # Send put request
-        r = client.put(unauth_endpoint, json={u'dispenses':[{u"time":"12:00", u"volume":1.2}], u'currentVolume': 5, u'total_detected': 3, u'total_dispensed': 2, u'total_ignores': 1})
+        r = client.put(unauth_endpoint, json={u'dispenses': [{u"time": "12:00", u"volume": 1.2}], u'currentVolume': 5,
+                                              u'total_detected': 3, u'total_dispensed': 2, u'total_ignores': 1})
 
         # Check response file type
         assert r.headers.get('Content-Type') == "text/html; charset=utf-8"
@@ -218,7 +228,9 @@ def test_device_id_put(client):
 
     def test_device_id_does_not_exist(client):
         # Send put request
-        r = client.put("/api/3FJwnCg-fHhcwQP3c59u_w/devices?id=IDONTEXIST", json={u'dispenses':[{u"time":"12:00", u"volume":1.2}], u'currentVolume': 5, u'total_detected': 3, u'total_dispensed': 2, u'total_ignores': 1})
+        r = client.put("/api/3FJwnCg-fHhcwQP3c59u_w/devices?id=IDONTEXIST",
+                       json={u'dispenses': [{u"time": "12:00", u"volume": 1.2}], u'currentVolume': 5,
+                             u'total_detected': 3, u'total_dispensed': 2, u'total_ignores': 1})
 
         # Check response file type
         assert r.headers.get('Content-Type') == "text/html; charset=utf-8"
@@ -230,24 +242,30 @@ def test_device_id_put(client):
         # Send put requests
 
         # Test currentVolume
-        r1 = client.put(endpoint, json={u'dispenses':[{u"time":"12:00", u"volume":1.2}], u'currentVolume': "should_be_int", u'total_detected': 1, u'total_dispensed': 1, u'total_ignores': 1})
-        assert r1.status_code == 400 # Bad request
+        r1 = client.put(endpoint,
+                        json={u'dispenses': [{u"time": "12:00", u"volume": 1.2}], u'currentVolume': "should_be_int",
+                              u'total_detected': 1, u'total_dispensed': 1, u'total_ignores': 1})
+        assert r1.status_code == 400  # Bad request
 
         # Test total_detected
-        r2 = client.put(endpoint, json={u'dispenses':[{u"time":"12:00", u"volume":1.2}], u'currentVolume': 1, u'total_detected': "should_be_int", u'total_dispensed': 1, u'total_ignores': 1})
-        assert r2.status_code == 400 # Bad request
+        r2 = client.put(endpoint, json={u'dispenses': [{u"time": "12:00", u"volume": 1.2}], u'currentVolume': 1,
+                                        u'total_detected': "should_be_int", u'total_dispensed': 1, u'total_ignores': 1})
+        assert r2.status_code == 400  # Bad request
 
         # Test total_dispensed
-        r3 = client.put(endpoint, json={u'dispenses':[{u"time":"12:00", u"volume":1.2}], u'currentVolume': 1, u'total_detected': 1, u'total_dispensed': "should_be_int", u'total_ignores': 1})
-        assert r3.status_code == 400 # Bad request
+        r3 = client.put(endpoint, json={u'dispenses': [{u"time": "12:00", u"volume": 1.2}], u'currentVolume': 1,
+                                        u'total_detected': 1, u'total_dispensed': "should_be_int", u'total_ignores': 1})
+        assert r3.status_code == 400  # Bad request
 
         # Test total_ignores
-        r4 = client.put(endpoint, json={u'dispenses':[{u"time":"12:00", u"volume":1.2}], u'currentVolume': 1, u'total_detected': 1, u'total_dispensed': 1, u'total_ignores': "should_be_int"})
-        assert r4.status_code == 400 # Bad request
+        r4 = client.put(endpoint, json={u'dispenses': [{u"time": "12:00", u"volume": 1.2}], u'currentVolume': 1,
+                                        u'total_detected': 1, u'total_dispensed': 1, u'total_ignores': "should_be_int"})
+        assert r4.status_code == 400  # Bad request
 
         # Test dispenses
-        r5 = client.put(endpoint, json={u'dispenses':"I should be a list", u'currentVolume': 1, u'total_detected': 1, u'total_dispensed': 1, u'total_ignores': "should_be_int"})
-        assert r5.status_code == 400 # Bad request
+        r5 = client.put(endpoint, json={u'dispenses': "I should be a list", u'currentVolume': 1, u'total_detected': 1,
+                                        u'total_dispensed': 1, u'total_ignores': "should_be_int"})
+        assert r5.status_code == 400  # Bad request
 
         # Check responses file types
         assert r1.headers.get('Content-Type') == "text/html; charset=utf-8"
@@ -261,8 +279,9 @@ def test_device_id_put(client):
     test_device_id_put_incomplete_data(client, endpoint, test)
     test_device_id_put_complete_data(client, endpoint, test)
     test_device_id_put_unauthorised(client, test)
-    #test_device_id_put_unaethenticated(client, test)
+    # test_device_id_put_unauthenticated(client, test)
     test_device_id_wrong_data_type_put(client, endpoint)
+
 
 # DELETE tests
 def test_device_id_delete(client):
@@ -321,6 +340,6 @@ def test_device_id_delete(client):
         assert r.status_code == 404
 
     test_del_existent_id_unauthorized(client, test)
-    #test_del_existent_id_unauthenicated(client, test)
+    # test_del_existent_id_unauthenticated(client, test)
     test_del_existent_id(client, endpoint, test)
     test_del_non_existent_id(client, endpoint, test)
