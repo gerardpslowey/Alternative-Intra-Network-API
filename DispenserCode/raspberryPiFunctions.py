@@ -277,6 +277,7 @@ if __name__ == '__main__':
         # Run the sensor monitoring software in seperate threads concurrently
         Thread(target=pir_motion_senor_and_led_with_buzzer).start()
         Thread(target=ultrasonic_sensor_and_motor).start()
+        # Thread(target=weight_cell_get_weight).start()
 
     # trap a CTRL+C keyboard interrupt
     except KeyboardInterrupt:

@@ -401,9 +401,7 @@ def create_app():
         if device_id and device.exists and get_log.exists:
             # Update the dispenses array with new data collected
             # Merge it with the old data
-            todays_log.set({
-                u'dispenses': data[u'dispenses']
-            }, merge=True)
+            todays_log.update({u'dispenses': firestore.ArrayUnion(data[u'dispenses'])})
 
             # Delays are needed to separate firestore operation
             time.sleep(0.1)
