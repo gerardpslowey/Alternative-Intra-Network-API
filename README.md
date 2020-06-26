@@ -1,0 +1,1 @@
+# Alternative Intra Placement Assignment
