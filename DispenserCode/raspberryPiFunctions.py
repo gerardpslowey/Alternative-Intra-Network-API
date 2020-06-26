@@ -140,7 +140,7 @@ def ultrasonic_sensor_and_motor():
 ########## Functions to update device logs ###########
 ######################################################
 
-# function to add to JSON
+# function to add to JSON list
 def write_to_usage_json(data, filename='log.json'):
     current_time = str(datetime.now().strftime('%H:%M:%S'))
 

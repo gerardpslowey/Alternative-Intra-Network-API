@@ -399,10 +399,11 @@ def create_app():
 
         # if device id is provided and device is on system and log files already recorded
         if device_id and device.exists and get_log.exists:
-            # Update the dispenses array
+            # Update the dispenses array with new data collected
+            # Merge it with the old data
             todays_log.set({
                 u'dispenses': data[u'dispenses']
-            })
+            }, merge=True)
 
             # Delays are needed to separate firestore operation
             time.sleep(0.1)
